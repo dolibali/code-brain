@@ -22,6 +22,7 @@ export type SearchResult = {
   summary: string;
   markdownPath: string;
   score: number;
+  relatedChanges: string[];
 };
 
 export type SearchReranker = (input: SearchInput, results: SearchResult[]) => SearchResult[];
@@ -118,7 +119,8 @@ export class SearchService {
       title: row.title,
       summary: row.summary,
       markdownPath: row.markdown_path,
-      score: row.score
+      score: row.score,
+      relatedChanges: this.getRelatedChanges(row.project, row.slug)
     }));
 
     if (this.config.llm.enabled && this.options?.rerank) {
@@ -131,4 +133,27 @@ export class SearchService {
 
     return localResults;
   }
+
+  private getRelatedChanges(project: string, slug: string): string[] {
+    if (slug.startsWith("change/")) {
+      return [];
+    }
+
+    const outgoing = this.index.db.prepare(`
+      SELECT to_slug AS slug
+      FROM page_links
+      WHERE project = ? AND from_slug = ? AND to_slug LIKE 'change/%'
+      ORDER BY to_slug ASC
+    `).all(project, slug) as Array<{ slug: string }>;
+
+    const incoming = this.index.db.prepare(`
+      SELECT from_slug AS slug
+      FROM page_links
+      WHERE project = ? AND to_slug = ? AND from_slug LIKE 'change/%'
+      ORDER BY from_slug ASC
+    `).all(project, slug) as Array<{ slug: string }>;
+
+    return [...new Set([...incoming, ...outgoing].map((row) => row.slug))];
+  }
 }
+

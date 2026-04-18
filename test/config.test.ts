@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadConfig, upsertProject, writeConfig } from "../src/config/load-config.js";
+import { getDefaultConfig, loadConfig, upsertProject, writeConfig } from "../src/config/load-config.js";
 import { openIndexDatabase } from "../src/storage/index-db.js";
 
 const tempRoots: string[] = [];
@@ -32,6 +32,7 @@ describe("config loading", () => {
     expect(loaded.exists).toBe(false);
     expect(loaded.path).toBe(configPath);
     expect(loaded.config.projects).toHaveLength(0);
+    expect(loaded.config.mcp.name).toBe("code-brain");
   });
 
   it("writes and reloads projects using snake_case yaml keys", async () => {
@@ -40,8 +41,9 @@ describe("config loading", () => {
     const loaded = await loadConfig(configPath);
     const nextConfig = upsertProject(loaded.config, {
       id: "code-brain",
-      root: path.join(root, "workspace"),
-      remotes: ["github.com/example/code-brain"]
+      mainBranch: "main",
+      roots: [path.join(root, "workspace")],
+      gitRemotes: ["github.com/example/code-brain"]
     });
 
     await writeConfig({ path: configPath, config: nextConfig });
@@ -50,11 +52,13 @@ describe("config loading", () => {
     const reloaded = await loadConfig(configPath);
 
     expect(raw).toContain("index_db:");
+    expect(raw).toContain("main_branch:");
     expect(reloaded.exists).toBe(true);
-    expect(reloaded.config.projects[0]?.id).toBe("code-brain");
+    expect(reloaded.config.projects[0]?.roots).toHaveLength(1);
+    expect(reloaded.config.projects[0]?.mainBranch).toBe("main");
   });
 
-  it("loads OpenAI-compatible provider presets for Chinese vendors", async () => {
+  it("loads provider presets for Chinese vendors with search-only routing", async () => {
     const root = await createTempRoot();
     const configPath = path.join(root, "config.yaml");
     const yaml = `
@@ -64,7 +68,7 @@ brain:
 projects: []
 llm:
   enabled: true
-  default_provider: deepseek
+  provider: deepseek
   providers:
     zhipu:
       mode: openai-compatible
@@ -77,7 +81,7 @@ llm:
       base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api_key_env: DASHSCOPE_API_KEY
       default_model: qwen-max
-      capabilities: [chat_completions, responses_api]
+      capabilities: [chat_completions, reasoning_control]
     minimax:
       mode: openai-compatible
       base_url: https://api.minimax.io/v1
@@ -89,7 +93,7 @@ llm:
       base_url: https://api.deepseek.com
       api_key_env: DEEPSEEK_API_KEY
       default_model: deepseek-chat
-      capabilities: [chat_completions]
+      capabilities: [chat_completions, reasoning_control]
     kimi:
       mode: openai-compatible
       base_url: https://api.moonshot.cn/v1
@@ -98,8 +102,10 @@ llm:
       capabilities: [chat_completions, reasoning_control]
   routing:
     search: deepseek
-    extract: qwen_bailian
-    dedup: zhipu
+  request:
+    extra_body: {}
+  timeout_ms: 8000
+  retries: 2
 `;
 
     await writeFile(configPath, yaml, "utf8");
@@ -115,18 +121,15 @@ llm:
     ]);
     expect(loaded.config.llm.providers.qwen_bailian?.baseUrl).toContain("dashscope.aliyuncs.com");
     expect(loaded.config.llm.routing.search).toBe("deepseek");
-    expect(loaded.config.llm.routing.extract).toBe("qwen_bailian");
-    expect(loaded.config.llm.routing.dedup).toBe("zhipu");
+    expect(loaded.config.llm.request.extraBody).toEqual({});
   });
 });
 
 describe("index initialization", () => {
-  it("creates schema and enables WAL mode", async () => {
+  it("creates schema, enables WAL mode, and does not create ingest_events", async () => {
     const root = await createTempRoot();
-    const configPath = path.join(root, "config.yaml");
-    const loaded = await loadConfig(configPath);
-    const configured = {
-      ...loaded.config,
+    const config = {
+      ...getDefaultConfig(),
       brain: {
         repo: path.join(root, "brain"),
         indexDb: path.join(root, "data", "index.sqlite")
@@ -134,13 +137,14 @@ describe("index initialization", () => {
       projects: [
         {
           id: "code-brain",
-          root,
-          remotes: []
+          mainBranch: "main",
+          roots: [root],
+          gitRemotes: []
         }
       ]
     };
 
-    const index = await openIndexDatabase(configured);
+    const index = await openIndexDatabase(config);
     try {
       index.initialize();
       index.syncProjects();
@@ -154,9 +158,10 @@ describe("index initialization", () => {
       expect(index.getJournalMode().toLowerCase()).toBe("wal");
       expect(tables.map((table) => table.name)).toContain("projects");
       expect(tables.map((table) => table.name)).toContain("pages");
-      expect(tables.map((table) => table.name)).toContain("ingest_events");
+      expect(tables.map((table) => table.name)).not.toContain("ingest_events");
     } finally {
       index.close();
     }
   });
 });
+

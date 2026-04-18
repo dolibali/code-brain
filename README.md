@@ -1,7 +1,7 @@
 # Code Brain
 
 Code Brain is a local-first code knowledge brain for `Claude Code`, `Cursor`, `Codex`, and `Gemini CLI`.
-It keeps Markdown as the source of truth, SQLite as the index, and exposes the same operations through CLI and MCP.
+It keeps Markdown as the source of truth, SQLite as the index, and exposes a thin-service tool surface through both CLI and MCP.
 
 ## Quickstart
 
@@ -17,10 +17,14 @@ It keeps Markdown as the source of truth, SQLite as the index, and exposes the s
 brain:
   repo: ~/.code-brain/brain
   index_db: ~/.code-brain/index.sqlite
+
 projects:
   - id: code-brain
-    root: ~/work/code-brain
-    remotes: []
+    main_branch: main
+    roots:
+      - ~/work/code-brain
+    git_remotes: []
+
 llm:
   enabled: false
 ```
@@ -28,43 +32,74 @@ llm:
 3. Register a project if it is not already in config:
 
 ```bash
-code-brain project register --id kilo-code --root ~/work/kilo-code --remote github.com/your-org/kilo-code
+codebrain project register \
+  --id kilo-code \
+  --root ~/work/kilo-code \
+  --remote github.com/your-org/kilo-code \
+  --main-branch main
 ```
 
 4. Search before editing:
 
 ```bash
-code-brain search "electron 沙箱 崩溃 preload" --context-path "$(pwd)"
+codebrain search "electron 沙箱 崩溃 preload" --context-path "$(pwd)"
 ```
 
-5. Record a finished task after editing:
+5. Read an existing page before rewriting it:
 
 ```bash
-code-brain change record \
+codebrain get issue/electron-sandbox-crash --project kilo-code
+```
+
+6. Put a full markdown page after a task is stable:
+
+```bash
+codebrain put change/2026/2026-04-18-preload-bridge-fix \
   --project kilo-code \
-  --commit-message "fix: electron sandbox crash" \
-  --summary "修复 electron 沙箱启动崩溃，preload bridge 不再直接访问 Node API。" \
-  --scope-ref file:src/main/preload.ts \
-  --source-ref abc123
+  --file ./change.md
+```
+
+7. Link evidence to long-lived knowledge:
+
+```bash
+codebrain link \
+  --project kilo-code \
+  --from change/2026/2026-04-18-preload-bridge-fix \
+  --to issue/electron-sandbox-crash \
+  --relation updates
 ```
 
 ## Useful Commands
 
 ```bash
-code-brain doctor
-code-brain search "query" --project kilo-code
-code-brain list --project kilo-code
-code-brain get issue/electron-sandbox-crash --project kilo-code
-code-brain change record --project kilo-code --summary-file ./summary.md
-code-brain links --project kilo-code --slug issue/electron-sandbox-crash
-code-brain reindex --project kilo-code
-code-brain serve
+codebrain serve
+codebrain project list
+codebrain search "query" --project kilo-code
+codebrain list --project kilo-code --types issue,practice
+codebrain get issue/electron-sandbox-crash --project kilo-code
+codebrain put practice/preload-bridge-rule --project kilo-code --file ./practice.md
+codebrain links --project kilo-code --slug issue/electron-sandbox-crash
+codebrain reindex --project kilo-code
 ```
+
+## Thin Service Surface
+
+Code Brain v1 intentionally keeps the service thin. The formal tool surface is:
+
+- `search`
+- `get_page`
+- `list_pages`
+- `put_page`
+- `link_pages`
+- `get_links`
+- `reindex`
+
+The service does not do `record_change`, automatic dedupe, automatic long-lived knowledge extraction, or hidden branch-based write rejection.
 
 ## Provider Presets
 
 Code Brain uses an `OpenAI-compatible-first` configuration model.
-These provider ids are supported in config and can be routed per capability:
+These provider ids are supported in config and can be routed for search:
 
 - `zhipu`
 - `qwen_bailian`
@@ -77,7 +112,7 @@ Example:
 ```yaml
 llm:
   enabled: true
-  default_provider: deepseek
+  provider: deepseek
   providers:
     zhipu:
       mode: openai-compatible
@@ -90,7 +125,7 @@ llm:
       base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api_key_env: DASHSCOPE_API_KEY
       default_model: qwen-max
-      capabilities: [chat_completions, responses_api]
+      capabilities: [chat_completions, reasoning_control]
     minimax:
       mode: openai-compatible
       base_url: https://api.minimax.io/v1
@@ -102,7 +137,7 @@ llm:
       base_url: https://api.deepseek.com
       api_key_env: DEEPSEEK_API_KEY
       default_model: deepseek-chat
-      capabilities: [chat_completions]
+      capabilities: [chat_completions, reasoning_control]
     kimi:
       mode: openai-compatible
       base_url: https://api.moonshot.cn/v1
@@ -111,26 +146,30 @@ llm:
       capabilities: [chat_completions, reasoning_control]
   routing:
     search: deepseek
-    extract: qwen_bailian
-    dedup: zhipu
+  request:
+    extra_body: {}
+  timeout_ms: 8000
+  retries: 2
 ```
 
 ## Agent Loops
 
 ### Claude Code
 
-- Prefer MCP: `code-brain serve`
+- Prefer MCP: `codebrain serve`
 - Workflow:
-  `search` before non-trivial edits, then `change record` after the task is done.
+  `search` before non-trivial edits, then on `main_branch` run the explicit `brain_sync_task` recipe:
+  `search -> get_page -> put change -> put long-lived page -> link_pages`
 
 ### Cursor
 
-- Prefer MCP against the same `code-brain serve`
+- Prefer MCP against the same `codebrain serve`
 - Fallback to CLI:
 
 ```bash
-code-brain search "query" --context-path "$(pwd)"
-code-brain change record --context-path "$(pwd)" --summary-file ./summary.md
+codebrain search "query" --context-path "$(pwd)"
+codebrain get practice/preload-bridge-rule --project kilo-code
+codebrain put change/2026/2026-04-18-preload-bridge-fix --file ./change.md
 ```
 
 ### Codex
@@ -143,12 +182,14 @@ code-brain change record --context-path "$(pwd)" --summary-file ./summary.md
 - v1 path is CLI-first:
 
 ```bash
-code-brain search "query" --context-path "$(pwd)"
-code-brain change record --context-path "$(pwd)" --summary-file ./summary.md
+codebrain search "query" --context-path "$(pwd)"
+codebrain get practice/preload-bridge-rule --project kilo-code
+codebrain put change/2026/2026-04-18-preload-bridge-fix --file ./change.md
 ```
 
 ## Notes
 
 - Markdown remains the source of truth even if SQLite is rebuilt.
-- `record_change` requires at least one of `diff`, `commit_message`, or `agent_summary`.
+- `put_page` expects a full markdown page with valid frontmatter.
 - Search defaults to the current project unless `--global` is passed.
+- `main_branch` is a recipe-level write suggestion for Agents, not a hidden `put_page` server-side rejection rule.

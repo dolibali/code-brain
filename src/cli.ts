@@ -1,7 +1,6 @@
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { Command } from "commander";
-import type { RelatedKnowledgeType } from "./changes/schema.js";
 import { loadConfig } from "./config/load-config.js";
 import { serveCodeBrainMcp } from "./mcp/server.js";
 import type { PageType, ScopeKind, ScopeRef } from "./pages/schema.js";
@@ -48,41 +47,23 @@ function parseScopeRefs(values: string[]): ScopeRef[] {
   });
 }
 
-async function loadBody(body?: string, bodyFile?: string): Promise<string> {
-  if (body && bodyFile) {
-    throw new Error("Use either --body or --body-file, not both.");
-  }
-
-  if (bodyFile) {
-    return readFile(path.resolve(bodyFile), "utf8");
-  }
-
-  if (body) {
-    return body;
-  }
-
-  throw new Error("Either --body or --body-file is required.");
-}
-
-async function loadOptionalText(input: {
+async function loadContent(input: {
   inline?: string;
   file?: string;
-  label: string;
-}): Promise<string | undefined> {
+}): Promise<string> {
   if (input.inline && input.file) {
-    throw new Error(`Use either --${input.label} or --${input.label}-file, not both.`);
+    throw new Error("Use either --content or --file, not both.");
   }
 
   if (input.file) {
-    try {
-      return await readFile(path.resolve(input.file), "utf8");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to read ${input.label} file '${input.file}': ${message}`);
-    }
+    return readFile(path.resolve(input.file), "utf8");
   }
 
-  return input.inline;
+  if (input.inline) {
+    return input.inline;
+  }
+
+  throw new Error("Either --content or --file is required.");
 }
 
 function parseDirection(value?: string): "incoming" | "outgoing" | "both" {
@@ -101,7 +82,7 @@ export function createCli(): Command {
   const program = new Command();
 
   program
-    .name("code-brain")
+    .name("codebrain")
     .description("Code Brain CLI")
     .showHelpAfterError()
     .showSuggestionAfterError()
@@ -113,31 +94,6 @@ export function createCli(): Command {
     .action(async (_, command: Command) => {
       const options = command.parent?.opts<GlobalOptions>() ?? {};
       await serveCodeBrainMcp(resolveOptionalConfigPath(options.config));
-    });
-
-  program
-    .command("doctor")
-    .description("Load config, ensure brain directories, and initialize the SQLite index")
-    .action(async (_, command: Command) => {
-      const options = command.parent?.opts<GlobalOptions>() ?? {};
-      const loaded = await loadConfig(resolveOptionalConfigPath(options.config));
-      await ensureBrainDirectories(loaded.config);
-      const index = await openIndexDatabase(loaded.config);
-
-      try {
-        index.initialize();
-        index.syncProjects();
-
-        console.log("Code Brain doctor");
-        console.log(`config_path: ${loaded.path}`);
-        console.log(`config_exists: ${loaded.exists}`);
-        console.log(`brain_repo: ${loaded.config.brain.repo}`);
-        console.log(`index_db: ${loaded.config.brain.indexDb}`);
-        console.log(`projects: ${loaded.config.projects.length}`);
-        console.log(`journal_mode: ${index.getJournalMode()}`);
-      } finally {
-        index.close();
-      }
     });
 
   const project = program.command("project").description("Manage registered projects");
@@ -155,8 +111,9 @@ export function createCli(): Command {
       }
 
       for (const entry of loaded.config.projects) {
-        const remotes = entry.remotes.length > 0 ? entry.remotes.join(", ") : "-";
-        console.log(`${entry.id}\t${entry.root}\t${remotes}`);
+        const roots = entry.roots.join(", ");
+        const remotes = entry.gitRemotes.length > 0 ? entry.gitRemotes.join(", ") : "-";
+        console.log(`${entry.id}\t${entry.mainBranch}\t${roots}\t${remotes}`);
       }
     });
 
@@ -165,15 +122,17 @@ export function createCli(): Command {
     .description("Register or update a project entry")
     .requiredOption("--id <id>", "Project id")
     .requiredOption("--root <root>", "Project root path")
+    .option("--main-branch <branch>", "Main branch name", "main")
     .option("--remote <remote...>", "Git remote matcher", [])
-    .option("--description <description>", "Human-readable description")
+    .option("--title <title>", "Human-readable project title")
     .action(async (commandOptions, command: Command) => {
       const options = command.parent?.parent?.opts<GlobalOptions>() ?? {};
       const loaded = await registerProject({
         id: commandOptions.id,
         root: commandOptions.root,
         remotes: commandOptions.remote,
-        description: commandOptions.description,
+        title: commandOptions.title,
+        mainBranch: commandOptions.mainBranch,
         configPath: resolveOptionalConfigPath(options.config)
       });
 
@@ -185,7 +144,7 @@ export function createCli(): Command {
         index.close();
       }
 
-      console.log(`Registered project ${commandOptions.id}`);
+      console.log(`registered: ${commandOptions.id}`);
       console.log(`config_path: ${loaded.path}`);
     });
 
@@ -220,8 +179,9 @@ export function createCli(): Command {
         }
 
         for (const result of results) {
+          const relatedChanges = result.relatedChanges.join(", ") || "-";
           console.log(
-            `${result.project}\t${result.type}\t${result.slug}\t${result.title}\t${result.summary}`
+            `${result.project}\t${result.type}\t${result.slug}\t${result.title}\t${relatedChanges}\t${result.summary}`
           );
         }
       } finally {
@@ -229,102 +189,30 @@ export function createCli(): Command {
       }
     });
 
-  const change = program.command("change").description("Record meaningful development changes");
-
-  change
-    .command("record")
-    .description("Create or update a change page from diff, commit message, or agent summary")
-    .option("--project <project>", "Project id")
-    .option("--context-path <path>", "Context path used for project resolution")
-    .option("--title <title>", "Change title")
-    .option("--kind <kind>", "Change kind")
-    .option("--diff <diff>", "Raw diff text")
-    .option("--diff-file <path>", "Load diff text from file")
-    .option("--commit-message <message>", "Commit message")
-    .option("--summary <summary>", "Agent summary")
-    .option("--summary-file <path>", "Load agent summary from file")
-    .option("--scope-ref <kind:value...>", "Structured scope refs", [])
-    .option("--related-types <csv>", "Comma-separated target page types")
-    .option("--source-ref <sourceRef>", "Stable source reference such as a commit hash or task id")
-    .option("--source-agent <sourceAgent>", "Source agent", "none")
-    .action(async (commandOptions, command: Command) => {
-      const options = command.parent?.parent?.opts<GlobalOptions>() ?? {};
-      const service = await openService(resolveOptionalConfigPath(options.config));
-
-      try {
-        const diff = await loadOptionalText({
-          inline: commandOptions.diff,
-          file: commandOptions.diffFile,
-          label: "diff"
-        });
-        const summary = await loadOptionalText({
-          inline: commandOptions.summary,
-          file: commandOptions.summaryFile,
-          label: "summary"
-        });
-
-        const result = await service.changes.recordChange({
-          project: commandOptions.project,
-          contextPath: commandOptions.contextPath,
-          title: commandOptions.title,
-          changeKind: commandOptions.kind,
-          diff,
-          commitMessage: commandOptions.commitMessage,
-          agentSummary: summary,
-          scopeRefs: parseScopeRefs(commandOptions.scopeRef),
-          relatedTypes: parseCsv(commandOptions.relatedTypes) as RelatedKnowledgeType[],
-          sourceRef: commandOptions.sourceRef,
-          sourceAgent: commandOptions.sourceAgent
-        });
-
-        console.log(`mode: ${result.mode}`);
-        console.log(`fingerprint: ${result.fingerprint}`);
-        console.log(`source_type: ${result.sourceType}`);
-        console.log(`source_ref: ${result.sourceRef}`);
-        console.log(`change_slug: ${result.changePage.slug}`);
-        console.log(`linked_pages: ${result.linkedPages.map((page) => page.slug).join(", ") || "-"}`);
-      } finally {
-        service.close();
-      }
-    });
-
   program
-    .command("upsert")
-    .description("Create or update a canonical knowledge page")
-    .requiredOption("--project <project>", "Project id")
-    .requiredOption("--type <type>", "Page type")
-    .requiredOption("--title <title>", "Page title")
-    .requiredOption("--status <status>", "Page status")
-    .option("--slug <slug>", "Page slug")
-    .option("--body <body>", "Page body")
-    .option("--body-file <path>", "Load page body from a file")
-    .option("--tags <csv>", "Comma-separated tags")
-    .option("--aliases <csv>", "Comma-separated aliases")
-    .option("--see-also <csv>", "Comma-separated related slugs")
-    .option("--scope-ref <kind:value...>", "Structured scope refs", [])
-    .option("--source-type <sourceType>", "Source type", "manual")
-    .option("--source-agent <sourceAgent>", "Source agent", "none")
-    .action(async (commandOptions, command: Command) => {
+    .command("put")
+    .description("Create or update a full markdown page")
+    .argument("<slug>", "Page slug, such as issue/electron-sandbox-crash")
+    .option("--project <project>", "Project id used for helper validation")
+    .option("--context-path <path>", "Context path used for helper validation")
+    .option("--content <content>", "Inline markdown content")
+    .option("--file <path>", "Load markdown content from a file")
+    .action(async (slug: string, commandOptions, command: Command) => {
       const options = command.parent?.opts<GlobalOptions>() ?? {};
       const service = await openService(resolveOptionalConfigPath(options.config));
 
       try {
-        const stored = await service.pages.upsertPage({
+        const stored = await service.pages.putPage({
           project: commandOptions.project,
-          type: commandOptions.type as PageType,
-          title: commandOptions.title,
-          slug: commandOptions.slug,
-          body: await loadBody(commandOptions.body, commandOptions.bodyFile),
-          tags: parseCsv(commandOptions.tags),
-          aliases: parseCsv(commandOptions.aliases),
-          seeAlso: parseCsv(commandOptions.seeAlso),
-          scopeRefs: parseScopeRefs(commandOptions.scopeRef),
-          status: commandOptions.status,
-          sourceType: commandOptions.sourceType,
-          sourceAgent: commandOptions.sourceAgent
+          slug,
+          content: await loadContent({
+            inline: commandOptions.content,
+            file: commandOptions.file
+          }),
+          contextPath: commandOptions.contextPath
         });
 
-        console.log(`upserted: ${stored.frontmatter.project}/${stored.slug}`);
+        console.log(`put: ${stored.frontmatter.project}/${stored.slug}`);
         console.log(`path: ${stored.markdownPath}`);
       } finally {
         service.close();
@@ -362,6 +250,7 @@ export function createCli(): Command {
 
   program
     .command("links")
+    .alias("get-links")
     .description("Get page links")
     .requiredOption("--project <project>", "Project id")
     .requiredOption("--slug <slug>", "Page slug")
@@ -395,8 +284,8 @@ export function createCli(): Command {
   program
     .command("get")
     .description("Get a canonical knowledge page by slug")
-    .argument("<slug>", "Page slug, such as issue/foo")
-    .requiredOption("--project <project>", "Project id")
+    .argument("<slug>", "Page slug, such as issue/electron-sandbox-crash")
+    .option("--project <project>", "Project id")
     .action(async (slug: string, commandOptions, command: Command) => {
       const options = command.parent?.opts<GlobalOptions>() ?? {};
       const service = await openService(resolveOptionalConfigPath(options.config));
@@ -404,10 +293,10 @@ export function createCli(): Command {
       try {
         const page = await service.pages.getPage(commandOptions.project, slug);
         if (!page) {
-          throw new Error(`Page '${slug}' not found in project '${commandOptions.project}'.`);
+          throw new Error(`Page '${slug}' not found.`);
         }
 
-        console.log(await readFile(page.markdownPath, "utf8"));
+        console.log(page.content);
       } finally {
         service.close();
       }
@@ -420,6 +309,7 @@ export function createCli(): Command {
     .option("--types <csv>", "Comma-separated page types")
     .option("--status <status>", "Page status")
     .option("--tags <csv>", "Comma-separated tags")
+    .option("--scope-ref <kind:value...>", "Structured scope refs", [])
     .option("--limit <limit>", "Maximum rows to return", "20")
     .action(async (commandOptions, command: Command) => {
       const options = command.parent?.opts<GlobalOptions>() ?? {};
@@ -431,6 +321,7 @@ export function createCli(): Command {
           types: parseCsv(commandOptions.types) as PageType[],
           status: commandOptions.status,
           tags: parseCsv(commandOptions.tags),
+          scopeRefs: parseScopeRefs(commandOptions.scopeRef),
           limit: Number(commandOptions.limit)
         });
 
@@ -471,3 +362,4 @@ export function createCli(): Command {
 
   return program;
 }
+

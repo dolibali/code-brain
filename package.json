@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "codebrain": "./dist/main.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx src/main.ts",
     "cli": "tsx src/main.ts",
     "serve": "tsx src/main.ts serve",
-    "doctor": "tsx src/main.ts doctor",
     "test": "vitest run"
   },
   "dependencies": {

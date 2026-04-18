@@ -26,17 +26,23 @@ async function createConfigFile(projectCount = 1): Promise<string> {
       ? `
 projects:
   - id: code-brain
-    root: ./workspace/code-brain
-    remotes: []
+    main_branch: main
+    roots:
+      - ./workspace/code-brain
+    git_remotes: []
 `
       : `
 projects:
   - id: code-brain
-    root: ./workspace/code-brain
-    remotes: []
+    main_branch: main
+    roots:
+      - ./workspace/code-brain
+    git_remotes: []
   - id: kilo-code
-    root: ./workspace/kilo-code
-    remotes: []
+    main_branch: main
+    roots:
+      - ./workspace/kilo-code
+    git_remotes: []
 `;
   await writeFile(
     configPath,
@@ -74,22 +80,54 @@ async function runCli(args: string[]): Promise<{ stdout: string; stderr: string;
 }
 
 describe("CLI help and errors", () => {
-  it("shows concise help aligned with the main command vocabulary", async () => {
+  it("shows concise help aligned with the thin service vocabulary", async () => {
     const result = await runCli(["--help"]);
 
     expect(result.failed).toBe(false);
     expect(result.stdout).toContain("search");
-    expect(result.stdout).toContain("change");
+    expect(result.stdout).toContain("put");
     expect(result.stdout).toContain("serve");
     expect(result.stdout).toContain("links");
+    expect(result.stdout).not.toContain("change");
   });
 
-  it("returns contextual errors for missing change inputs", async () => {
+  it("returns structured validation errors for put_page mismatches", async () => {
     const configPath = await createConfigFile(1);
-    const result = await runCli(["--config", configPath, "change", "record", "--project", "code-brain"]);
+    const markdownPath = path.join(path.dirname(configPath), "page.md");
+    await writeFile(
+      markdownPath,
+      `---
+project: kilo-code
+type: issue
+title: Electron Sandbox Crash
+status: fixed
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Symptoms
+
+Sandbox crashed.
+`,
+      "utf8"
+    );
+
+    const result = await runCli([
+      "--config",
+      configPath,
+      "put",
+      "issue/electron-sandbox-crash",
+      "--project",
+      "code-brain",
+      "--file",
+      markdownPath
+    ]);
 
     expect(result.failed).toBe(true);
-    expect(result.stderr).toContain("record_change requires at least one of diff, commit_message, or agent_summary");
+    expect(result.stderr).toContain("\"error\": \"validation_failed\"");
+    expect(result.stderr).toContain("\"field\": \"project\"");
   });
 
   it("returns contextual errors for ambiguous project resolution", async () => {

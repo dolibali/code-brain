@@ -16,17 +16,19 @@ function normalizePath(input: string): string {
   return path.resolve(input);
 }
 
-function findProjectByPath(config: CodeBrainConfig, candidatePath?: string): string | null {
+function matchProjectByPath(config: CodeBrainConfig, candidatePath?: string): string | null {
   if (!candidatePath) {
     return null;
   }
 
   const normalizedCandidate = normalizePath(candidatePath);
   const matches = config.projects
-    .map((project) => ({
-      id: project.id,
-      root: normalizePath(project.root)
-    }))
+    .flatMap((project) =>
+      project.roots.map((root) => ({
+        id: project.id,
+        root: normalizePath(root)
+      }))
+    )
     .filter((project) => normalizedCandidate === project.root || normalizedCandidate.startsWith(`${project.root}${path.sep}`))
     .sort((left, right) => right.root.length - left.root.length);
 
@@ -46,7 +48,7 @@ export function resolveProject(config: CodeBrainConfig, input: ResolveProjectInp
     };
   }
 
-  const contextMatch = findProjectByPath(config, input.contextPath);
+  const contextMatch = matchProjectByPath(config, input.contextPath);
   if (contextMatch) {
     return {
       projectId: contextMatch,
@@ -54,7 +56,7 @@ export function resolveProject(config: CodeBrainConfig, input: ResolveProjectInp
     };
   }
 
-  const cwdMatch = findProjectByPath(config, input.cwd);
+  const cwdMatch = matchProjectByPath(config, input.cwd);
   if (cwdMatch) {
     return {
       projectId: cwdMatch,

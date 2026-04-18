@@ -27,8 +27,10 @@ brain:
   index_db: ./state/index.sqlite
 projects:
   - id: code-brain
-    root: ./workspace/code-brain
-    remotes: []
+    main_branch: main
+    roots:
+      - ./workspace/code-brain
+    git_remotes: []
 llm:
   enabled: false
 `;
@@ -37,7 +39,7 @@ llm:
 }
 
 describe("Code Brain MCP server", () => {
-  it("exposes MCP tools that operate on the same backing service as the CLI", async () => {
+  it("exposes only thin-service tools and operates on the same backing service as the CLI", async () => {
     const configPath = await createConfigFile();
     const { server, service } = await createCodeBrainMcpServer(configPath);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -53,29 +55,73 @@ describe("Code Brain MCP server", () => {
       const tools = await client.listTools();
       const toolNames = tools.tools.map((tool) => tool.name);
       expect(toolNames).toContain("search");
-      expect(toolNames).toContain("record_change");
+      expect(toolNames).toContain("put_page");
       expect(toolNames).toContain("get_links");
+      expect(toolNames).not.toContain("record_change");
+      expect(toolNames).not.toContain("upsert_page");
 
-      const recordResult = await client.callTool({
-        name: "record_change",
+      const pageContent = `---
+project: code-brain
+type: issue
+title: Electron Sandbox Crash
+status: fixed
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Symptoms
+
+修复 electron 沙箱启动崩溃。
+`;
+
+      await client.callTool({
+        name: "put_page",
+        arguments: {
+          slug: "issue/electron-sandbox-crash",
+          project: "code-brain",
+          content: pageContent
+        }
+      });
+
+      await client.callTool({
+        name: "put_page",
+        arguments: {
+          slug: "change/2026/2026-04-18-preload-bridge-fix",
+          project: "code-brain",
+          content: `---
+project: code-brain
+type: change
+title: Preload bridge fix
+status: recorded
+source_type: agent
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Background
+
+Fix preload bridge.
+`
+        }
+      });
+
+      await client.callTool({
+        name: "link_pages",
         arguments: {
           project: "code-brain",
-          commit_message: "fix: electron sandbox crash",
-          agent_summary: "修复 electron 沙箱启动崩溃，preload bridge 不再直接访问 Node API。",
-          scope_refs: [
-            {
-              kind: "file",
-              value: "src/main/preload.ts"
-            }
-          ],
-          source_ref: "mcp-commit-1"
+          from_slug: "change/2026/2026-04-18-preload-bridge-fix",
+          to_slug: "issue/electron-sandbox-crash",
+          relation: "updates"
         }
       });
 
       const searchResult = await client.callTool({
         name: "search",
         arguments: {
-          query: "electron 沙箱 崩溃 preload",
+          query: "electron 沙箱",
           project: "code-brain"
         }
       });
@@ -88,18 +134,12 @@ describe("Code Brain MCP server", () => {
         }
       });
 
-      const recordContent = (recordResult as { content: Array<{ type: string; text?: string }> }).content;
-      const searchContent = (searchResult as { content: Array<{ type: string; text?: string }> }).content;
-      const linksContent = (linksResult as { content: Array<{ type: string; text?: string }> }).content;
+      const searchText = (searchResult as { content: Array<{ type: string; text?: string }> }).content[0]?.text ?? "";
+      const linksText = (linksResult as { content: Array<{ type: string; text?: string }> }).content[0]?.text ?? "";
 
-      expect(recordContent[0]?.type).toBe("text");
-      expect(recordContent[0]?.type === "text" ? recordContent[0].text ?? "" : "").toContain(
-        "change_slug"
-      );
-      expect(searchContent[0]?.type === "text" ? searchContent[0].text ?? "" : "").toContain(
-        "electron-sandbox-crash"
-      );
-      expect(linksContent[0]?.type === "text" ? linksContent[0].text ?? "" : "").toContain("updates");
+      expect(searchText).toContain("issue/electron-sandbox-crash");
+      expect(searchText).toContain("change/2026/2026-04-18-preload-bridge-fix");
+      expect(linksText).toContain("updates");
     } finally {
       await client.close();
       await server.close();
@@ -107,3 +147,4 @@ describe("Code Brain MCP server", () => {
     }
   });
 });
+

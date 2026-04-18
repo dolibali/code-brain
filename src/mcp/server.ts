@@ -58,19 +58,19 @@ function registerTools(server: McpServer, service: ServiceContext): void {
       description: "Get one canonical knowledge page",
       inputSchema: {
         slug: z.string().min(1),
-        project: z.string().min(1)
+        project: z.string().optional()
       }
     },
     async ({ slug, project }) => {
       const page = await service.pages.getPage(project, slug);
       if (!page) {
-        throw new Error(`Page '${slug}' not found in project '${project}'.`);
+        throw new Error(`Page '${slug}' not found.`);
       }
 
       return toolResult({
+        project: page.frontmatter.project,
         slug: page.slug,
-        frontmatter: page.frontmatter,
-        body: page.body,
+        content: page.content,
         markdown_path: page.markdownPath
       });
     }
@@ -85,15 +85,17 @@ function registerTools(server: McpServer, service: ServiceContext): void {
         types: z.array(z.enum(["issue", "architecture", "decision", "practice", "change"])).optional(),
         status: z.string().optional(),
         tags: z.array(z.string()).optional(),
+        scope_refs: z.array(ScopeRefSchema).optional(),
         limit: z.number().int().positive().optional()
       }
     },
-    async ({ project, types, status, tags, limit }) => {
+    async ({ project, types, status, tags, scope_refs, limit }) => {
       const pages = service.pages.listPages({
         project,
         types,
         status,
         tags,
+        scopeRefs: scope_refs,
         limit
       });
       return toolResult({ pages });
@@ -101,111 +103,27 @@ function registerTools(server: McpServer, service: ServiceContext): void {
   );
 
   server.registerTool(
-    "upsert_page",
+    "put_page",
     {
-      description: "Create or update a long-lived knowledge page",
-      inputSchema: {
-        project: z.string().min(1),
-        type: z.enum(["issue", "architecture", "decision", "practice"]),
-        slug: z.string().optional(),
-        title: z.string().min(1),
-        content: z.string().min(1),
-        tags: z.array(z.string()).optional(),
-        aliases: z.array(z.string()).optional(),
-        scope_refs: z.array(ScopeRefSchema).optional(),
-        status: z.string().min(1),
-        see_also: z.array(z.string()).optional(),
-        source_type: z.enum(["manual", "diff", "commit", "agent_summary", "import"]).optional(),
-        source_agent: z.enum(["claude-code", "cursor", "codex", "gemini-cli", "none"]).optional()
-      }
-    },
-    async ({
-      project,
-      type,
-      slug,
-      title,
-      content,
-      tags,
-      aliases,
-      scope_refs,
-      status,
-      see_also,
-      source_type,
-      source_agent
-    }) => {
-      const page = await service.pages.upsertPage({
-        project,
-        type,
-        slug,
-        title,
-        body: content,
-        tags,
-        aliases,
-        scopeRefs: scope_refs,
-        status,
-        seeAlso: see_also,
-        sourceType: source_type ?? "manual",
-        sourceAgent: source_agent ?? "none"
-      });
-      return toolResult({ slug: page.slug, markdown_path: page.markdownPath });
-    }
-  );
-
-  server.registerTool(
-    "record_change",
-    {
-      description: "Create or update a change page and related long-lived knowledge",
+      description: "Create or update a full markdown page",
       inputSchema: {
         project: z.string().optional(),
-        title: z.string().optional(),
-        change_kind: z.enum(["bugfix", "refactor", "feature", "rollback", "recovery", "maintenance"]).optional(),
-        diff: z.string().optional(),
-        commit_message: z.string().optional(),
-        agent_summary: z.string().optional(),
-        scope_refs: z.array(ScopeRefSchema).optional(),
-        related_types: z.array(z.enum(["issue", "architecture", "decision", "practice"])).optional(),
-        source_ref: z.string().optional(),
-        source_agent: z.enum(["claude-code", "cursor", "codex", "gemini-cli", "none"]).optional(),
+        slug: z.string().min(1),
+        content: z.string().min(1),
         context_path: z.string().optional()
       }
     },
-    async ({
-      project,
-      title,
-      change_kind,
-      diff,
-      commit_message,
-      agent_summary,
-      scope_refs,
-      related_types,
-      source_ref,
-      source_agent,
-      context_path
-    }) => {
-      const result = await service.changes.recordChange({
+    async ({ project, slug, content, context_path }) => {
+      const page = await service.pages.putPage({
         project,
-        title,
-        changeKind: change_kind,
-        diff,
-        commitMessage: commit_message,
-        agentSummary: agent_summary,
-        scopeRefs: scope_refs,
-        relatedTypes: related_types,
-        sourceRef: source_ref,
-        sourceAgent: source_agent,
+        slug,
+        content,
         contextPath: context_path
       });
       return toolResult({
-        mode: result.mode,
-        fingerprint: result.fingerprint,
-        source_type: result.sourceType,
-        source_ref: result.sourceRef,
-        change_slug: result.changePage.slug,
-        linked_pages: result.linkedPages.map((page) => ({
-          slug: page.slug,
-          type: page.frontmatter.type,
-          title: page.frontmatter.title
-        }))
+        project: page.frontmatter.project,
+        slug: page.slug,
+        markdown_path: page.markdownPath
       });
     }
   );
@@ -276,8 +194,8 @@ export async function createCodeBrainMcpServer(configPath?: string): Promise<{
 }> {
   const service = await openService(configPath);
   const server = new McpServer({
-    name: "code-brain",
-    version: "0.1.0"
+    name: service.config.mcp.name,
+    version: service.config.mcp.version
   });
 
   registerTools(server, service);
@@ -293,3 +211,4 @@ export async function serveCodeBrainMcp(configPath?: string): Promise<void> {
 
   await server.connect(transport);
 }
+

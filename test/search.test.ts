@@ -2,7 +2,9 @@ import os from "node:os";
 import path from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
+import { getDefaultConfig } from "../src/config/load-config.js";
 import type { CodeBrainConfig } from "../src/config/schema.js";
+import { LinkRepository } from "../src/links/repository.js";
 import { PageRepository } from "../src/pages/repository.js";
 import { ensureBrainDirectories } from "../src/projects/project-registry.js";
 import { resolveProject } from "../src/projects/resolve-project.js";
@@ -23,6 +25,7 @@ afterEach(async () => {
 async function createFixture(): Promise<{
   config: CodeBrainConfig;
   pages: PageRepository;
+  links: LinkRepository;
   search: SearchService;
   index: Awaited<ReturnType<typeof openIndexDatabase>>;
   close: () => void;
@@ -37,6 +40,7 @@ async function createFixture(): Promise<{
   };
 
   const config: CodeBrainConfig = {
+    ...getDefaultConfig(),
     brain: {
       repo: path.join(root, "brain"),
       indexDb: path.join(root, "state", "index.sqlite")
@@ -44,20 +48,17 @@ async function createFixture(): Promise<{
     projects: [
       {
         id: "code-brain",
-        root: roots.codeBrain,
-        remotes: []
+        mainBranch: "main",
+        roots: [roots.codeBrain],
+        gitRemotes: []
       },
       {
         id: "kilo-code",
-        root: roots.kiloCode,
-        remotes: []
+        mainBranch: "main",
+        roots: [roots.kiloCode],
+        gitRemotes: []
       }
-    ],
-    llm: {
-      enabled: false,
-      providers: {},
-      routing: {}
-    }
+    ]
   };
 
   await ensureBrainDirectories(config);
@@ -68,6 +69,7 @@ async function createFixture(): Promise<{
   return {
     config,
     pages: new PageRepository(config, index),
+    links: new LinkRepository(index),
     search: new SearchService(config, index),
     index,
     close: () => index.close(),
@@ -94,36 +96,53 @@ describe("project resolution", () => {
 });
 
 describe("search service", () => {
-  it("supports mixed Chinese and English queries with type filters", async () => {
+  it("supports mixed Chinese and English queries with type and scope filters", async () => {
     const fixture = await createFixture();
 
     try {
-      await fixture.pages.upsertPage({
-        project: "code-brain",
-        type: "issue",
-        title: "Electron Sandbox Crash",
-        body: `## Symptoms\n\nElectron 沙箱启动崩溃，preload bridge 访问失败。\n\n## Timeline\n\n- 2026-04-18 | fixed`,
-        status: "fixed",
-        sourceType: "manual",
-        sourceAgent: "codex",
-        tags: ["electron", "sandbox"],
-        scopeRefs: [
-          {
-            kind: "file",
-            value: "src/main/preload.ts"
-          }
-        ]
+      await fixture.pages.putPage({
+        slug: "issue/electron-sandbox-crash",
+        content: `---
+project: code-brain
+type: issue
+title: Electron Sandbox Crash
+scope_refs:
+  - kind: file
+    value: src/main/preload.ts
+status: fixed
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Symptoms
+
+Electron 沙箱启动崩溃，preload bridge 访问失败。
+
+## Timeline
+
+- 2026-04-18 | fixed
+`
       });
 
-      await fixture.pages.upsertPage({
-        project: "code-brain",
-        type: "practice",
-        title: "Preload Bridge Rule",
-        body: `## Rule\n\n在 sandbox 场景下通过 preload bridge 暴露 browser-safe API。`,
-        status: "active",
-        sourceType: "manual",
-        sourceAgent: "codex",
-        tags: ["bridge"]
+      await fixture.pages.putPage({
+        slug: "practice/preload-bridge-rule",
+        content: `---
+project: code-brain
+type: practice
+title: Preload Bridge Rule
+status: active
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Rule
+
+在 sandbox 场景下通过 preload bridge 暴露 browser-safe API。
+`
       });
 
       const results = fixture.search.search({
@@ -140,8 +159,68 @@ describe("search service", () => {
       });
 
       expect(results).toHaveLength(1);
-      expect(results[0]?.slug).toBe("electron-sandbox-crash");
+      expect(results[0]?.slug).toBe("issue/electron-sandbox-crash");
       expect(results[0]?.type).toBe("issue");
+    } finally {
+      fixture.close();
+    }
+  });
+
+  it("returns related change slugs from the explicit link graph", async () => {
+    const fixture = await createFixture();
+
+    try {
+      await fixture.pages.putPage({
+        slug: "issue/electron-sandbox-crash",
+        content: `---
+project: code-brain
+type: issue
+title: Electron Sandbox Crash
+status: fixed
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Symptoms
+
+Sandbox crashed.
+`
+      });
+
+      await fixture.pages.putPage({
+        slug: "change/2026/2026-04-18-preload-bridge-fix",
+        content: `---
+project: code-brain
+type: change
+title: Preload bridge fix
+status: recorded
+source_type: agent
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Background
+
+Fix preload bridge.
+`
+      });
+
+      fixture.links.linkPages({
+        project: "code-brain",
+        fromSlug: "change/2026/2026-04-18-preload-bridge-fix",
+        toSlug: "issue/electron-sandbox-crash",
+        relation: "updates"
+      });
+
+      const results = fixture.search.search({
+        query: "sandbox crashed",
+        project: "code-brain"
+      });
+
+      expect(results[0]?.relatedChanges).toContain("change/2026/2026-04-18-preload-bridge-fix");
     } finally {
       fixture.close();
     }
@@ -158,14 +237,27 @@ describe("search service", () => {
         }
       });
 
-      await fixture.pages.upsertPage({
-        project: "code-brain",
-        type: "issue",
-        title: "Electron Sandbox Crash",
-        body: `## Symptoms\n\nElectron sandbox crash.\n\n## Timeline\n\n- 2026-04-18 | fixed`,
-        status: "fixed",
-        sourceType: "manual",
-        sourceAgent: "codex"
+      await fixture.pages.putPage({
+        slug: "issue/electron-sandbox-crash",
+        content: `---
+project: code-brain
+type: issue
+title: Electron Sandbox Crash
+status: fixed
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Symptoms
+
+Electron sandbox crash.
+
+## Timeline
+
+- 2026-04-18 | fixed
+`
       });
 
       const results = failingSearch.search({
@@ -174,7 +266,7 @@ describe("search service", () => {
       });
 
       expect(results).toHaveLength(1);
-      expect(results[0]?.slug).toBe("electron-sandbox-crash");
+      expect(results[0]?.slug).toBe("issue/electron-sandbox-crash");
     } finally {
       fixture.close();
     }

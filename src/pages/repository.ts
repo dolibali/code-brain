@@ -1,52 +1,29 @@
 import path from "node:path";
-import { mkdir, open, readFile, rename, rm, readdir } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, rename, rm } from "node:fs/promises";
 import type { DatabaseSync } from "node:sqlite";
 import type { CodeBrainConfig } from "../config/schema.js";
+import { singleValidationError, ValidationError } from "../errors/validation-error.js";
+import { resolveProject } from "../projects/resolve-project.js";
 import { buildIndexedSearchText } from "../search/normalize.js";
 import type { IndexDatabase } from "../storage/index-db.js";
 import { runInTransaction } from "../storage/transaction.js";
 import { storageWriteQueue } from "../storage/write-queue.js";
 import { parsePageMarkdown } from "./parse-page.js";
-import { normalizePageRef } from "./page-ref.js";
+import { markdownPathToSlug, normalizePageRef, slugToMarkdownPath, validatePageSlug } from "./page-ref.js";
 import { renderPageMarkdown } from "./render-page.js";
-import {
-  type ChangeKind,
-  type LifecycleStage,
-  type PageFrontmatter,
-  type PageType,
-  type ScopeRef,
-  type SourceAgent,
-  type SourceType
-} from "./schema.js";
+import type { PageFrontmatter, PageType, ScopeRef } from "./schema.js";
 
-type PagePathInfo = {
+export type PutPageInput = {
+  project?: string;
   slug: string;
-  markdownPath: string;
-};
-
-export type UpsertPageInput = {
-  project: string;
-  type: PageType;
-  title: string;
-  body: string;
-  slug?: string;
-  tags?: string[];
-  aliases?: string[];
-  scopeRefs?: ScopeRef[];
-  status: string;
-  sourceType: SourceType;
-  sourceAgent: SourceAgent;
-  createdAt?: string;
-  updatedAt?: string;
-  lifecycleStage?: LifecycleStage;
-  changeKind?: ChangeKind;
-  confidence?: number;
-  seeAlso?: string[];
+  content: string;
+  contextPath?: string;
 };
 
 export type StoredPage = {
   frontmatter: PageFrontmatter;
   body: string;
+  content: string;
   slug: string;
   markdownPath: string;
   compiledTruth: string;
@@ -58,6 +35,7 @@ export type ListPagesInput = {
   types?: PageType[];
   status?: string;
   tags?: string[];
+  scopeRefs?: ScopeRef[];
   limit?: number;
 };
 
@@ -70,37 +48,6 @@ export type ListedPage = {
   updatedAt: string;
   markdownPath: string;
 };
-
-function slugifySegment(input: string): string {
-  const normalized = input
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9\u4e00-\u9fff]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-")
-    .toLowerCase();
-
-  return normalized.length > 0 ? normalized : "untitled";
-}
-
-function typeDirectory(type: PageType): string {
-  switch (type) {
-    case "issue":
-      return "issues";
-    case "architecture":
-      return "architecture";
-    case "decision":
-      return "decisions";
-    case "practice":
-      return "practices";
-    case "change":
-      return "changes";
-    default: {
-      const exhaustive: never = type;
-      throw new Error(`Unhandled page type: ${exhaustive}`);
-    }
-  }
-}
 
 function extractCompiledTruthAndTimeline(body: string): {
   compiledTruth: string;
@@ -139,32 +86,10 @@ function buildScopeText(scopeRefs: ScopeRef[]): string {
 function findProject(config: CodeBrainConfig, projectId: string): { id: string } {
   const project = config.projects.find((entry) => entry.id === projectId);
   if (!project) {
-    throw new Error(`Unknown project '${projectId}'. Register it first with 'code-brain project register'.`);
+    throw new Error(`Unknown project '${projectId}'. Register it first with 'codebrain project register'.`);
   }
 
   return project;
-}
-
-function buildPagePath(config: CodeBrainConfig, frontmatter: PageFrontmatter, slug?: string): PagePathInfo {
-  findProject(config, frontmatter.project);
-
-  const resolvedSlug = slug ?? slugifySegment(frontmatter.title);
-  const projectRoot = path.join(config.brain.repo, "projects", frontmatter.project, "pages");
-
-  if (frontmatter.type === "change") {
-    const date = frontmatter.createdAt.slice(0, 10);
-    const year = frontmatter.createdAt.slice(0, 4);
-    const finalSlug = slug ?? `${date}-${slugifySegment(frontmatter.title)}`;
-    return {
-      slug: finalSlug,
-      markdownPath: path.join(projectRoot, typeDirectory(frontmatter.type), year, `${finalSlug}.md`)
-    };
-  }
-
-  return {
-    slug: resolvedSlug,
-    markdownPath: path.join(projectRoot, typeDirectory(frontmatter.type), `${resolvedSlug}.md`)
-  };
 }
 
 async function writeMarkdownAtomically(markdownPath: string, contents: string): Promise<void> {
@@ -189,10 +114,9 @@ async function writeMarkdownAtomically(markdownPath: string, contents: string): 
 
 function upsertPageIndex(db: DatabaseSync, page: StoredPage): void {
   const scopeText = buildScopeText(page.frontmatter.scopeRefs);
-  const { compiledTruth, timelineText } = page;
-  const summary = buildSummary(compiledTruth, page.frontmatter.title);
-  const indexedCompiledTruth = buildIndexedSearchText(compiledTruth);
-  const indexedTimelineText = buildIndexedSearchText(timelineText);
+  const summary = buildSummary(page.compiledTruth, page.frontmatter.title);
+  const indexedCompiledTruth = buildIndexedSearchText(page.compiledTruth);
+  const indexedTimelineText = buildIndexedSearchText(page.timelineText);
   const indexedAliases = buildIndexedSearchText(page.frontmatter.aliases.join(" "));
   const indexedTags = buildIndexedSearchText(page.frontmatter.tags.join(" "));
   const indexedScopeText = buildIndexedSearchText(scopeText);
@@ -201,11 +125,11 @@ function upsertPageIndex(db: DatabaseSync, page: StoredPage): void {
     db.prepare(`
       INSERT INTO pages (
         project, slug, type, title, summary, markdown_path, status,
-        lifecycle_stage, change_kind, source_type, source_agent, confidence,
+        lifecycle_stage, change_kind, source_type, source_agent,
         tags_json, aliases_json, see_also_json, compiled_truth, timeline_text,
         created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(project, slug) DO UPDATE SET
         type = excluded.type,
         title = excluded.title,
@@ -216,7 +140,6 @@ function upsertPageIndex(db: DatabaseSync, page: StoredPage): void {
         change_kind = excluded.change_kind,
         source_type = excluded.source_type,
         source_agent = excluded.source_agent,
-        confidence = excluded.confidence,
         tags_json = excluded.tags_json,
         aliases_json = excluded.aliases_json,
         see_also_json = excluded.see_also_json,
@@ -236,12 +159,11 @@ function upsertPageIndex(db: DatabaseSync, page: StoredPage): void {
       page.frontmatter.changeKind ?? null,
       page.frontmatter.sourceType,
       page.frontmatter.sourceAgent,
-      page.frontmatter.confidence ?? null,
       JSON.stringify(page.frontmatter.tags),
       JSON.stringify(page.frontmatter.aliases),
       JSON.stringify(page.frontmatter.seeAlso),
-      compiledTruth,
-      timelineText,
+      page.compiledTruth,
+      page.timelineText,
       page.frontmatter.createdAt,
       page.frontmatter.updatedAt
     );
@@ -288,6 +210,7 @@ async function parseStoredPage(markdownPath: string, slug: string): Promise<Stor
   return {
     frontmatter: parsed.frontmatter,
     body: parsed.body,
+    content: source,
     slug,
     markdownPath,
     compiledTruth: textParts.compiledTruth,
@@ -319,52 +242,114 @@ async function walkMarkdownFiles(root: string): Promise<string[]> {
   return files;
 }
 
+function resolveStoredProject(
+  config: CodeBrainConfig,
+  frontmatterProject: string,
+  inputProject?: string,
+  contextPath?: string
+): string {
+  if (inputProject && inputProject !== frontmatterProject) {
+    throw singleValidationError(
+      "project",
+      `project '${inputProject}' does not match frontmatter project '${frontmatterProject}'.`
+    );
+  }
+
+  const resolvedFromContext = contextPath
+    ? resolveProject(config, {
+        contextPath,
+        cwd: process.cwd()
+      })
+    : null;
+
+  if (resolvedFromContext && resolvedFromContext.projectId !== frontmatterProject) {
+    throw singleValidationError(
+      "project",
+      `context_path resolves to project '${resolvedFromContext.projectId}', but frontmatter project is '${frontmatterProject}'.`
+    );
+  }
+
+  findProject(config, frontmatterProject);
+  return frontmatterProject;
+}
+
+function selectProjectForRead(config: CodeBrainConfig, project?: string): string {
+  const resolved = resolveProject(config, {
+    project,
+    cwd: process.cwd()
+  });
+
+  if (!resolved) {
+    throw new Error("Unable to resolve project. Pass --project.");
+  }
+
+  return resolved.projectId;
+}
+
 export class PageRepository {
   constructor(
     private readonly config: CodeBrainConfig,
     private readonly index: IndexDatabase
   ) {}
 
-  async upsertPage(input: UpsertPageInput): Promise<StoredPage> {
+  async putPage(input: PutPageInput): Promise<StoredPage> {
     return storageWriteQueue.runExclusive(async () => {
-      const now = new Date().toISOString();
-      const frontmatter: PageFrontmatter = {
-        project: input.project,
-        type: input.type,
-        title: input.title,
-        tags: input.tags ?? [],
-        aliases: input.aliases ?? [],
-        scopeRefs: input.scopeRefs ?? [],
-        status: input.status,
-        sourceType: input.sourceType,
-        sourceAgent: input.sourceAgent,
-        createdAt: input.createdAt ?? now,
-        updatedAt: input.updatedAt ?? now,
-        lifecycleStage: input.lifecycleStage,
-        changeKind: input.changeKind,
-        confidence: input.confidence,
-        seeAlso: input.seeAlso ?? []
-      };
+      const normalizedSlug = validatePageSlug(input.slug);
+      const parsed = parsePageMarkdown(input.content);
+      const project = resolveStoredProject(
+        this.config,
+        parsed.frontmatter.project,
+        input.project,
+        input.contextPath
+      );
 
-      const pagePath = buildPagePath(this.config, frontmatter, input.slug);
-      const markdown = renderPageMarkdown(frontmatter, input.body);
-      await writeMarkdownAtomically(pagePath.markdownPath, markdown);
-      const storedPage = await parseStoredPage(pagePath.markdownPath, pagePath.slug);
+      validatePageSlug(normalizedSlug, parsed.frontmatter.type);
+      if (parsed.frontmatter.slug && normalizePageRef(parsed.frontmatter.slug) !== normalizedSlug) {
+        throw singleValidationError(
+          "slug",
+          `frontmatter slug '${parsed.frontmatter.slug}' does not match put_page slug '${normalizedSlug}'.`
+        );
+      }
+
+      const projectPagesRoot = path.join(this.config.brain.repo, "projects", project, "pages");
+      const markdownPath = slugToMarkdownPath(projectPagesRoot, normalizedSlug);
+      const markdown = renderPageMarkdown(parsed.frontmatter, parsed.body);
+      await writeMarkdownAtomically(markdownPath, markdown);
+
+      const storedPage = await parseStoredPage(markdownPath, normalizedSlug);
       upsertPageIndex(this.index.db, storedPage);
       return storedPage;
     });
   }
 
-  async getPage(project: string, slug: string): Promise<StoredPage | null> {
-    const row = this.index.db
-      .prepare("SELECT markdown_path FROM pages WHERE project = ? AND slug = ?")
-      .get(project, normalizePageRef(slug)) as { markdown_path: string } | undefined;
+  async getPage(project: string | undefined, slug: string): Promise<StoredPage | null> {
+    const normalizedSlug = validatePageSlug(slug);
 
-    if (!row) {
+    if (project) {
+      const row = this.index.db
+        .prepare("SELECT markdown_path FROM pages WHERE project = ? AND slug = ?")
+        .get(project, normalizedSlug) as { markdown_path: string } | undefined;
+
+      if (!row) {
+        return null;
+      }
+
+      return parseStoredPage(row.markdown_path, normalizedSlug);
+    }
+
+    const rows = this.index.db
+      .prepare("SELECT project, markdown_path FROM pages WHERE slug = ? ORDER BY project ASC")
+      .all(normalizedSlug) as Array<{ project: string; markdown_path: string }>;
+
+    if (rows.length === 0) {
       return null;
     }
 
-    return parseStoredPage(row.markdown_path, normalizePageRef(slug));
+    if (rows.length > 1) {
+      throw new Error(`Page '${normalizedSlug}' exists in multiple projects. Pass --project.`);
+    }
+
+    return parseStoredPage(rows[0]!.markdown_path, normalizedSlug);
   }
 
   listPages(input: ListPagesInput): ListedPage[] {
@@ -372,24 +357,39 @@ export class PageRepository {
     const values: Array<string | number> = [];
 
     if (input.project) {
-      conditions.push("project = ?");
-      values.push(input.project);
+      conditions.push("pages.project = ?");
+      values.push(selectProjectForRead(this.config, input.project));
     }
 
     if (input.types && input.types.length > 0) {
-      conditions.push(`type IN (${input.types.map(() => "?").join(", ")})`);
+      conditions.push(`pages.type IN (${input.types.map(() => "?").join(", ")})`);
       values.push(...input.types);
     }
 
     if (input.status) {
-      conditions.push("status = ?");
+      conditions.push("pages.status = ?");
       values.push(input.status);
     }
 
     if (input.tags && input.tags.length > 0) {
       for (const tag of input.tags) {
-        conditions.push("tags_json LIKE ?");
+        conditions.push("pages.tags_json LIKE ?");
         values.push(`%\"${tag}\"%`);
+      }
+    }
+
+    if (input.scopeRefs && input.scopeRefs.length > 0) {
+      for (const scope of input.scopeRefs) {
+        conditions.push(`
+          EXISTS (
+            SELECT 1
+            FROM page_scopes
+            WHERE page_scopes.page_id = pages.id
+              AND page_scopes.scope_kind = ?
+              AND page_scopes.scope_value = ?
+          )
+        `);
+        values.push(scope.kind, scope.value);
       }
     }
 
@@ -431,7 +431,7 @@ export class PageRepository {
       const projectIds =
         input.full || !input.project
           ? this.config.projects.map((project) => project.id)
-          : [input.project];
+          : [selectProjectForRead(this.config, input.project)];
 
       runInTransaction(this.index.db, () => {
         if (projectIds.length === 0) {
@@ -457,16 +457,16 @@ export class PageRepository {
         const markdownFiles = await walkMarkdownFiles(projectPagesRoot);
 
         for (const markdownPath of markdownFiles) {
-          const source = await readFile(markdownPath, "utf8");
-          const parsed = parsePageMarkdown(source);
-          const derivedSlug = path.basename(markdownPath, ".md");
-          const page = {
-            frontmatter: parsed.frontmatter,
-            body: parsed.body,
-            slug: derivedSlug,
-            markdownPath,
-            ...extractCompiledTruthAndTimeline(parsed.body)
-          } satisfies StoredPage;
+          const slug = markdownPathToSlug(projectPagesRoot, markdownPath);
+          const page = await parseStoredPage(markdownPath, slug);
+          if (page.frontmatter.project !== projectId) {
+            throw new ValidationError("frontmatter validation failed", [
+              {
+                field: "project",
+                message: `frontmatter project '${page.frontmatter.project}' does not match project directory '${projectId}'.`
+              }
+            ]);
+          }
 
           upsertPageIndex(this.index.db, page);
           pageCount += 1;
@@ -485,3 +485,4 @@ export class PageRepository {
     });
   }
 }
+

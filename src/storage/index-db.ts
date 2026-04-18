@@ -24,17 +24,24 @@ export async function openIndexDatabase(config: CodeBrainConfig): Promise<IndexD
 
   const syncProjects = (): void => {
     const statement = db.prepare(`
-      INSERT INTO projects (id, root, remotes_json, description, updated_at)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      INSERT INTO projects (id, title, main_branch, roots_json, git_remotes_json, updated_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(id) DO UPDATE SET
-        root = excluded.root,
-        remotes_json = excluded.remotes_json,
-        description = excluded.description,
+        title = excluded.title,
+        main_branch = excluded.main_branch,
+        roots_json = excluded.roots_json,
+        git_remotes_json = excluded.git_remotes_json,
         updated_at = CURRENT_TIMESTAMP
     `);
 
     for (const project of config.projects) {
-      statement.run(project.id, project.root, JSON.stringify(project.remotes), project.description ?? null);
+      statement.run(
+        project.id,
+        project.title ?? null,
+        project.mainBranch,
+        JSON.stringify(project.roots),
+        JSON.stringify(project.gitRemotes)
+      );
     }
   };
 
@@ -57,8 +64,8 @@ export async function openIndexDatabase(config: CodeBrainConfig): Promise<IndexD
 }
 
 function migrateDerivedSchema(db: DatabaseSync): void {
+  ensureProjectsColumns(db);
   ensurePagesColumns(db);
-  ensureIngestEventsColumns(db);
   ensureFtsSchema(db);
   rebuildPagesFts(db);
   db.exec(`
@@ -67,13 +74,47 @@ function migrateDerivedSchema(db: DatabaseSync): void {
   `);
 }
 
+function ensureProjectsColumns(db: DatabaseSync): void {
+  const columnRows = db.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
+  const columns = new Set(columnRows.map((row) => row.name));
+  const additions: Array<{ name: string; sql: string }> = [
+    { name: "title", sql: "ALTER TABLE projects ADD COLUMN title TEXT" },
+    { name: "main_branch", sql: "ALTER TABLE projects ADD COLUMN main_branch TEXT NOT NULL DEFAULT 'main'" },
+    {
+      name: "roots_json",
+      sql: "ALTER TABLE projects ADD COLUMN roots_json TEXT NOT NULL DEFAULT '[]'"
+    },
+    {
+      name: "git_remotes_json",
+      sql: "ALTER TABLE projects ADD COLUMN git_remotes_json TEXT NOT NULL DEFAULT '[]'"
+    }
+  ];
+
+  for (const addition of additions) {
+    if (!columns.has(addition.name)) {
+      db.exec(addition.sql);
+    }
+  }
+
+  if (columns.has("root") && !columns.has("roots_json")) {
+    db.exec("UPDATE projects SET roots_json = json_array(root) WHERE COALESCE(roots_json, '[]') = '[]'");
+  }
+
+  if (columns.has("remotes_json") && !columns.has("git_remotes_json")) {
+    db.exec(`
+      UPDATE projects
+      SET git_remotes_json = remotes_json
+      WHERE COALESCE(git_remotes_json, '[]') = '[]'
+    `);
+  }
+}
+
 function ensurePagesColumns(db: DatabaseSync): void {
   const columnRows = db.prepare("PRAGMA table_info(pages)").all() as Array<{ name: string }>;
   const columns = new Set(columnRows.map((row) => row.name));
   const additions: Array<{ name: string; sql: string }> = [
     { name: "lifecycle_stage", sql: "ALTER TABLE pages ADD COLUMN lifecycle_stage TEXT" },
     { name: "change_kind", sql: "ALTER TABLE pages ADD COLUMN change_kind TEXT" },
-    { name: "confidence", sql: "ALTER TABLE pages ADD COLUMN confidence REAL" },
     {
       name: "tags_json",
       sql: "ALTER TABLE pages ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'"
@@ -94,21 +135,6 @@ function ensurePagesColumns(db: DatabaseSync): void {
       name: "timeline_text",
       sql: "ALTER TABLE pages ADD COLUMN timeline_text TEXT NOT NULL DEFAULT ''"
     }
-  ];
-
-  for (const addition of additions) {
-    if (!columns.has(addition.name)) {
-      db.exec(addition.sql);
-    }
-  }
-}
-
-function ensureIngestEventsColumns(db: DatabaseSync): void {
-  const columnRows = db.prepare("PRAGMA table_info(ingest_events)").all() as Array<{ name: string }>;
-  const columns = new Set(columnRows.map((row) => row.name));
-  const additions: Array<{ name: string; sql: string }> = [
-    { name: "change_page_slug", sql: "ALTER TABLE ingest_events ADD COLUMN change_page_slug TEXT" },
-    { name: "confidence", sql: "ALTER TABLE ingest_events ADD COLUMN confidence REAL" }
   ];
 
   for (const addition of additions) {
@@ -220,3 +246,4 @@ function parseJsonArray(input: string): string[] {
     return [];
   }
 }
+

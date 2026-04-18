@@ -1,4 +1,6 @@
 import matter from "gray-matter";
+import { ZodError } from "zod";
+import { ValidationError } from "../errors/validation-error.js";
 import { PageFrontmatterSchema, type PageFrontmatter } from "./schema.js";
 
 export type ParsedPage = {
@@ -34,10 +36,25 @@ function normalizeKeysDeep(value: unknown): unknown {
 export function parsePageMarkdown(source: string): ParsedPage {
   const parsed = matter(source);
   const normalized = normalizeKeysDeep(parsed.data);
-  const frontmatter = PageFrontmatterSchema.parse(normalized);
 
-  return {
-    frontmatter,
-    body: parsed.content.trim()
-  };
+  try {
+    const frontmatter = PageFrontmatterSchema.parse(normalized);
+    return {
+      frontmatter,
+      body: parsed.content.trim()
+    };
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw new ValidationError(
+        "frontmatter validation failed",
+        error.issues.map((issue) => ({
+          field: issue.path.join(".") || "frontmatter",
+          message: issue.message
+        }))
+      );
+    }
+
+    throw error;
+  }
 }
+

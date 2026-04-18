@@ -2,11 +2,14 @@ export const INDEX_SCHEMA_SQL = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+DROP TABLE IF EXISTS ingest_events;
+
 CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
-  root TEXT NOT NULL,
-  remotes_json TEXT NOT NULL DEFAULT '[]',
-  description TEXT,
+  title TEXT,
+  main_branch TEXT NOT NULL DEFAULT 'main',
+  roots_json TEXT NOT NULL DEFAULT '[]',
+  git_remotes_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -24,7 +27,6 @@ CREATE TABLE IF NOT EXISTS pages (
   change_kind TEXT,
   source_type TEXT,
   source_agent TEXT,
-  confidence REAL,
   tags_json TEXT NOT NULL DEFAULT '[]',
   aliases_json TEXT NOT NULL DEFAULT '[]',
   see_also_json TEXT NOT NULL DEFAULT '[]',
@@ -60,19 +62,6 @@ CREATE TABLE IF NOT EXISTS timeline_entries (
   body TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS ingest_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  project TEXT NOT NULL REFERENCES projects(id),
-  fingerprint TEXT NOT NULL,
-  source_type TEXT NOT NULL,
-  source_ref TEXT,
-  change_page_slug TEXT,
-  change_kind TEXT,
-  confidence REAL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(project, fingerprint)
-);
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_page_links_unique
 ON page_links(project, from_slug, to_slug, relation);
 
@@ -88,3 +77,4 @@ CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
   scope_text
 );
 `;
+

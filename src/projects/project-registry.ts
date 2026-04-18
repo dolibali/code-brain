@@ -7,7 +7,8 @@ export type RegisterProjectInput = {
   id: string;
   root: string;
   remotes: string[];
-  description?: string;
+  title?: string;
+  mainBranch?: string;
   configPath?: string;
 };
 
@@ -24,9 +25,10 @@ export async function registerProject(input: RegisterProjectInput): Promise<Load
   const loaded = await loadConfig(input.configPath);
   const nextProject: ProjectRegistration = {
     id: input.id,
-    root: input.root,
-    remotes: input.remotes,
-    description: input.description
+    title: input.title,
+    mainBranch: input.mainBranch ?? "main",
+    roots: [input.root],
+    gitRemotes: input.remotes
   };
 
   const nextConfig = upsertProject(loaded.config, nextProject);
@@ -39,3 +41,4 @@ export async function registerProject(input: RegisterProjectInput): Promise<Load
   await ensureBrainDirectories(nextLoaded.config);
   return nextLoaded;
 }
+
