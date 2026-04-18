@@ -1,0 +1,30 @@
+Session: 2026-04-18
+
+What was set up
+- Initialized the long-running task workflow for Code Brain.
+- Added feature_list.json with functional and style checkpoints derived from docs/DESIGN.md.
+- Implemented the first TypeScript foundation with config loading, project registration, SQLite initialization, and a baseline CLI.
+- Verified the Phase 1 commands through real CLI runs plus automated tests.
+- Added the first Markdown page parser with frontmatter validation for all five page types.
+- Implemented page repository write-through sync, canonical page reads, and reindex from Markdown truth.
+- Verified the page lifecycle through both automated tests and a real CLI flow.
+- Implemented baseline project resolution and local FTS search with mixed Chinese/English token support.
+- Verified `search` through both automated tests and a real CLI invocation.
+- Implemented `record_change`, ingest dedupe, long-lived knowledge upsert, and explicit link graph support.
+- Verified change capture through automated tests and a real CLI flow covering `change record`, `list`, `get`, and `links`.
+- Added MCP `serve` support with tool parity against the CLI and verified it through an in-memory MCP client test.
+- Added provider preset validation, CLI help/error integration tests, and a top-level README quickstart with agent usage loops.
+
+Current status
+- 24 features defined
+- 24/24 features passing
+
+What should be worked on next
+- Replace Node's experimental `node:sqlite` API with a stable production driver if you want to remove the runtime warning.
+- Decide whether the next milestone is real LLM extraction/rerank integration, broader MCP client testing, or packaging/release work.
+- Start dogfooding the brain repo against a real project and collect the first round of knowledge quality feedback.
+
+Notes
+- The design document keeps implementation choices open, but the current recommendation already leans toward TypeScript.
+- Initial implementation will use the TypeScript route while preserving the product contracts from docs/DESIGN.md.
+- The current SQLite integration uses Node's built-in API, which works in this environment but still emits an experimental warning.

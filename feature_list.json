@@ -1,0 +1,290 @@
+[
+  {
+    "category": "functional",
+    "description": "CLI can load config from ~/.code-brain/config.yaml or CODE_BRAIN_CONFIG with sane defaults",
+    "steps": [
+      "Delete any temporary test config file",
+      "Run `npm run cli -- doctor` in a clean environment",
+      "Verify the command prints resolved config paths and does not crash",
+      "Create a custom config file and set CODE_BRAIN_CONFIG to that path",
+      "Run `npm run cli -- doctor` again and verify the custom path is reported"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Project registry can register and list multiple projects in config and index",
+    "steps": [
+      "Run `npm run cli -- project register --id kilo-code --root ~/work/kilo-code --remote github.com/example/kilo-code`",
+      "Run `npm run cli -- project register --id code-brain --root ~/work/code-brain`",
+      "Run `npm run cli -- project list`",
+      "Verify both projects appear with ids, roots, and remotes",
+      "Inspect config file and verify both registrations were persisted"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "SQLite index database initializes with required tables and WAL mode",
+    "steps": [
+      "Run `npm run cli -- doctor` with a writable config directory",
+      "Verify the index database file is created",
+      "Open the database with sqlite tooling or an automated test",
+      "Verify projects, pages, page_scopes, page_links, timeline_entries, ingest_events, and pages_fts exist",
+      "Verify `PRAGMA journal_mode` reports WAL"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "CLI exposes a stable command surface for doctor, project register, and project list",
+    "steps": [
+      "Run `npm run cli -- --help`",
+      "Verify top-level commands include doctor and project",
+      "Run `npm run cli -- project --help`",
+      "Verify register and list subcommands are documented",
+      "Run each command with minimal valid arguments and verify non-error completion"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Brain repo directories can be created on demand from config defaults or explicit paths",
+    "steps": [
+      "Point config to a non-existent brain repo path",
+      "Run `npm run cli -- doctor`",
+      "Verify the repo root directory is created automatically",
+      "Verify the index database parent directory is created automatically",
+      "Verify no unrelated directories are created"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Markdown page model can parse required frontmatter fields for issue, architecture, decision, practice, and change pages",
+    "steps": [
+      "Create sample markdown pages for each page type under a temporary brain repo",
+      "Run the future parser entrypoint or automated tests",
+      "Verify valid pages are accepted",
+      "Verify missing required fields are rejected with a clear error",
+      "Verify page type specific templates remain distinguishable"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Write-through sync writes Markdown first and refreshes SQLite index immediately after",
+    "steps": [
+      "Create or update a page through the future upsert flow",
+      "Verify the markdown file exists with updated content",
+      "Immediately query the SQLite index for the same slug",
+      "Verify the indexed record matches the markdown state",
+      "Restart the process and verify the record is still discoverable"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Reindex can rebuild SQLite from Markdown truth source after manual file edits",
+    "steps": [
+      "Create a markdown page in the brain repo",
+      "Run the future `reindex` command",
+      "Verify the page appears in search or list output",
+      "Edit the markdown file by hand",
+      "Run `reindex` again and verify the index reflects the new content"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Search can resolve project from explicit project first and context_path second",
+    "steps": [
+      "Register two projects with different roots",
+      "Run the future search command with an explicit project and a mismatched context path",
+      "Verify the explicit project wins",
+      "Run search without project but with a valid context path",
+      "Verify the inferred project matches the path root"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Search can combine Chinese and English query terms with scope and type filters",
+    "steps": [
+      "Seed the brain repo with pages containing Chinese text, English symbols, and scope refs",
+      "Run the future search command using a mixed-language query",
+      "Verify the expected issue or practice page is returned",
+      "Run the same query with `types` filter",
+      "Verify the filtered result set narrows correctly"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Search keeps a single API while supporting LLM quality-first reranking and local fallback",
+    "steps": [
+      "Configure one LLM provider preset and seed multiple near-duplicate pages",
+      "Run the future search command with LLM enabled",
+      "Verify the best long-lived page ranks ahead of related change pages",
+      "Disable or break LLM access and run the same search",
+      "Verify the command still returns results using local fallback ordering"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "get_page and list_pages can retrieve canonical knowledge pages from the brain repo",
+    "steps": [
+      "Seed the brain repo with multiple pages across types",
+      "Run the future `list_pages` operation for a single project",
+      "Verify only matching project pages are listed",
+      "Run the future `get_page` operation for one slug",
+      "Verify the returned page content matches the markdown source"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "record_change creates or updates a change page from diff, commit message, or agent summary",
+    "steps": [
+      "Prepare a sample commit message and agent summary",
+      "Run the future `record_change` command with those inputs",
+      "Verify a change markdown page is created under the project changes path",
+      "Run the command again with the same source reference",
+      "Verify the existing change page is updated rather than duplicated"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Fingerprint and source_ref dedupe prevent exact duplicate ingest events",
+    "steps": [
+      "Submit the same change payload twice with identical project, source_ref, change_kind, and primary scope refs",
+      "Inspect the future ingest event records",
+      "Verify only one fingerprint entry is accepted",
+      "Change one dedupe input and submit again",
+      "Verify a new ingest event is created"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Automatic long-lived knowledge upsert works in both rule mode and LLM mode",
+    "steps": [
+      "Prepare one bugfix change payload and one practice-like summary payload",
+      "Run the future record_change flow with LLM disabled",
+      "Verify conservative linking or candidate creation happens without fabricating pages",
+      "Run the same flow with LLM enabled",
+      "Verify issue or practice pages are linked or updated more precisely"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Link graph can connect change pages to issue, decision, architecture, and practice pages",
+    "steps": [
+      "Create one change page and at least two long-lived pages",
+      "Run the future `link_pages` operation",
+      "Run the future `get_links` operation for the change page",
+      "Verify outgoing links and relation labels are stored",
+      "Verify reverse lookup can also discover related pages"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "MCP server exposes the same operations as the CLI without behavior drift",
+    "steps": [
+      "Start the future MCP server locally",
+      "Invoke search and record_change through MCP",
+      "Invoke the equivalent CLI commands",
+      "Compare output structures and side effects",
+      "Verify both paths share the same validation rules"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Provider presets support GLM, Qwen, MiniMax, DeepSeek, Kimi, and OpenAI-compatible routing",
+    "steps": [
+      "Configure provider presets in config.yaml",
+      "Run the future config validation path",
+      "Verify each preset is accepted with base_url, api_key_env, and default_model",
+      "Select different providers for search and extract routing",
+      "Verify the resolved runtime config reflects the routing choices"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Claude Code, Cursor, Codex, and Gemini CLI can all follow the same search then record loop",
+    "steps": [
+      "Prepare the documented rule or instruction snippets for each agent",
+      "Simulate one search call and one record_change call through each integration path",
+      "Verify Claude Code, Cursor, and Codex can use MCP or CLI as documented",
+      "Verify Gemini CLI can complete the loop through the CLI path",
+      "Verify all four leave knowledge in the same brain repo and index"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
+    "description": "Core tests cover config loading, project resolution, SQLite init, search fallback, and record_change upsert behavior",
+    "steps": [
+      "Run `npm run test`",
+      "Verify automated tests execute against temporary directories",
+      "Verify tests cover config loading and project registry behavior",
+      "Verify tests cover SQLite initialization and fallback behavior",
+      "Verify tests fail if one of those contracts regresses"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "CLI help text is concise, readable, and aligned with the DESIGN.md vocabulary",
+    "steps": [
+      "Run `npm run cli -- --help` and `npm run cli -- project --help`",
+      "Verify command names match DESIGN.md terminology such as search, get_page, and record_change",
+      "Verify examples are short and realistic",
+      "Verify required options are obvious",
+      "Verify help output stays readable in a standard terminal width"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Config examples and quickstart docs make the happy path obvious for a single-user local setup",
+    "steps": [
+      "Read the local setup documentation and sample config",
+      "Follow the documented steps in a clean temp environment",
+      "Verify a new user can initialize config and project registration without guesswork",
+      "Verify Chinese LLM provider presets are explained without assuming OpenAI parity",
+      "Verify the docs distinguish minimal config from advanced config"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Errors carry context and tell the user what to fix next",
+    "steps": [
+      "Run a command with a missing required option",
+      "Run a command with an invalid config value",
+      "Run a command with an unreadable path",
+      "Verify each error message names the failing input and next action",
+      "Verify stack traces are not dumped for expected user mistakes"
+    ],
+    "passes": true
+  },
+  {
+    "category": "style",
+    "description": "Progress tracking files make future agent sessions easy to resume",
+    "steps": [
+      "Open feature_list.json, claude-progress.txt, CLAUDE.md, and AGENTS.md",
+      "Verify the workflow explains how to resume work in a fresh session",
+      "Verify feature_list.json is ordered from foundational work to integrations",
+      "Verify progress notes identify the next recommended feature",
+      "Verify the files do not contradict the current repository state"
+    ],
+    "passes": true
+  }
+]

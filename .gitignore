@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+coverage/
+*.log
+tmp/
+.tmp/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.code-brain/
+
