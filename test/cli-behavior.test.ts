@@ -150,5 +150,7 @@ Sandbox crashed.
     expect(result.stdout).toContain("config_path:");
     expect(written).toContain("brain:");
     expect(written).toContain("index_db:");
+    expect(written).toContain("repo: ./brain");
+    expect(written).toContain("index_db: ./state/index.sqlite");
   });
 });

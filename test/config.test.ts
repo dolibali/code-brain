@@ -33,6 +33,15 @@ describe("config loading", () => {
     expect(loaded.path).toBe(configPath);
     expect(loaded.config.projects).toHaveLength(0);
     expect(loaded.config.mcp.name).toBe("code-brain");
+    expect(loaded.config.brain.repo).toBe(path.join(root, "brain"));
+    expect(loaded.config.brain.indexDb).toBe(path.join(root, "state", "index.sqlite"));
+  });
+
+  it("keeps home defaults for the standard config path", () => {
+    const defaults = getDefaultConfig();
+
+    expect(defaults.brain.repo).toContain(path.join(".code-brain", "brain"));
+    expect(defaults.brain.indexDb).toContain(path.join(".code-brain", "index.sqlite"));
   });
 
   it("writes and reloads projects using snake_case yaml keys", async () => {

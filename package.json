@@ -28,6 +28,7 @@
     "cli": "tsx src/main.ts",
     "serve": "tsx src/main.ts serve",
     "prepack": "npm run build",
+    "smoke:mcp": "node scripts/smoke-mcp.mjs",
     "test": "vitest run"
   },
   "dependencies": {

@@ -1,37 +1,28 @@
 Session: 2026-04-24
 
 What was implemented
-- Upgraded Code Brain from a repo-local dev CLI into a release-ready package shape:
-  `private: false`, publish metadata, `LICENSE`, `exports`, `files`, `prepack`, and a real `codebrain` bin that points at built JS.
-- Added `codebrain init` so a fresh user can bootstrap config, repo directories, and the index without hand-writing YAML first.
-- Added a search-side OpenAI-compatible integration path for real LLM query expansion and reranking.
-- Added optional embedding support with a local SQLite-backed `page_embeddings` index and best-effort embedding refresh on `put_page` and `reindex`.
-- Kept the service boundary thin: no write-side LLM judgment, no automatic memory extraction, and no hidden branch rejection.
-- Tightened MCP semantics:
-  better tool descriptions, structured error payloads, and search strategy metadata to help models understand the tool intent.
-- Added companion docs for agent usage:
-  `docs/BRAIN_SYNC_RECIPE.md` plus integration notes for Claude Code, Codex, Cursor, and Gemini CLI.
+- Continued the release-hardening pass after the thin-service + model-adapter work.
+- Changed `codebrain init --config <path>` to behave as a portable setup:
+  when the config path is explicit and non-default, generated `brain` and `state/index.sqlite` paths are written relative to that config file instead of silently pointing at `~/.code-brain`.
+- Updated config loading so missing custom config files resolve to config-relative runtime paths, while the standard default path still keeps home-based defaults.
+- Added a dedicated stdio MCP smoke script at `scripts/smoke-mcp.mjs`.
+  It bootstraps a temp config, writes a sample page, connects to `codebrain serve` over MCP stdio, and verifies `search` + `get_page`.
+- Updated README to document portable `init --config` behavior and the new smoke-test workflow.
 
 Current status
 - `npm run typecheck` passes
 - `npm test` passes
 - `npm run build` passes
-- `npm pack` passes
-- Installed tarball smoke test passes for:
-  `codebrain --help`
-  `codebrain init`
-  `codebrain project register`
-  `codebrain project list`
-  `codebrain serve`
+- `npm run smoke:mcp` passes
+- Total automated tests: 31 passing
 
 Important notes
-- Search is now async internally because LLM expansion/reranking and embedding lookup can be remote operations.
-- LLM is still only used on the search path.
-- Embedding remains optional and defaults to off.
+- Default config path still uses `~/.code-brain`.
+- Explicit config paths now default to `./brain` and `./state/index.sqlite` relative to the config file.
+- Search is still async internally because LLM expansion/reranking and embedding lookup can be remote operations.
 - The package still uses Node's built-in `node:sqlite`, so experimental warnings may appear depending on the Node version.
 
 What should be worked on next
 - Consider replacing `node:sqlite` with a stable production driver if install/runtime stability becomes a blocker.
-- Decide whether `codebrain init --config <path>` should keep using home-based defaults or derive repo/index paths relative to the explicit config path.
 - Add real provider integration smoke tests against one OpenAI-compatible vendor if you want higher confidence beyond mocks.
-- Consider adding a dedicated MCP smoke script that exercises `search` and `get_page` through stdio from the built package.
+- Consider whether to add one more smoke path that validates the published tarball can run `smoke:mcp`-equivalent checks after install.

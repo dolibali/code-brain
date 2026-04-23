@@ -112,7 +112,7 @@ export function createCli(): Command {
         return;
       }
 
-      const defaultConfig = getDefaultConfig();
+      const defaultConfig = getDefaultConfig(configPath);
       const savedPath = await writeConfig({
         path: configPath,
         config: defaultConfig

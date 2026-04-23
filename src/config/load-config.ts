@@ -58,12 +58,13 @@ type RawEmbeddingConfig = {
   enabled?: unknown;
 };
 
-export function getDefaultConfig(): CodeBrainConfig {
+export function getDefaultConfig(configFilePath = DEFAULT_CONFIG_PATH): CodeBrainConfig {
   const home = os.homedir();
+  const usePortableDefaults = path.resolve(configFilePath) !== path.resolve(DEFAULT_CONFIG_PATH);
   return {
     brain: {
-      repo: path.join(home, ".code-brain", "brain"),
-      indexDb: path.join(home, ".code-brain", "index.sqlite")
+      repo: usePortableDefaults ? "./brain" : path.join(home, ".code-brain", "brain"),
+      indexDb: usePortableDefaults ? "./state/index.sqlite" : path.join(home, ".code-brain", "index.sqlite")
     },
     projects: [],
     llm: {
@@ -239,7 +240,7 @@ function normalizeConfigPaths(config: CodeBrainConfig, configFilePath: string): 
 
 export async function loadConfig(explicitPath?: string): Promise<LoadedConfig> {
   const resolvedPath = resolveConfigPath(explicitPath);
-  const defaults = getDefaultConfig();
+  const defaults = getDefaultConfig(resolvedPath);
 
   try {
     const raw = await readFile(resolvedPath, "utf8");
@@ -280,7 +281,7 @@ export async function loadConfig(explicitPath?: string): Promise<LoadedConfig> {
       return {
         path: resolvedPath,
         exists: false,
-        config: defaults
+        config: normalizeConfigPaths(defaults, resolvedPath)
       };
     }
 

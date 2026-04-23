@@ -31,6 +31,14 @@ For local development in this repo:
 codebrain init
 ```
 
+If you want a portable workspace-local setup instead of writing under `~/.code-brain`, initialize with an explicit config path:
+
+```bash
+codebrain --config ./tmp/code-brain/config.yaml init
+```
+
+In that mode, the generated `brain` and `state/index.sqlite` paths are written relative to the config file.
+
 2. Register a project:
 
 ```bash
@@ -250,3 +258,14 @@ Integration notes:
 - Search defaults to the current project unless `--global` is passed.
 - `main_branch` is a recipe-level write suggestion for agents, not a hidden `put_page` server-side rejection rule.
 - The current SQLite backend uses Node's built-in `node:sqlite`, which may print an experimental warning depending on your Node version.
+
+## Smoke Tests
+
+Repository-local smoke checks:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+npm run smoke:mcp
+```
