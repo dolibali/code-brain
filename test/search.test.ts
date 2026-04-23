@@ -3,7 +3,7 @@ import path from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { getDefaultConfig } from "../src/config/load-config.js";
-import type { CodeBrainConfig } from "../src/config/schema.js";
+import type { BrainCodeConfig } from "../src/config/schema.js";
 import { EmbeddingIndexRepository } from "../src/embedding/repository.js";
 import { LinkRepository } from "../src/links/repository.js";
 import { PageRepository } from "../src/pages/repository.js";
@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 async function createFixture(): Promise<{
-  config: CodeBrainConfig;
+  config: BrainCodeConfig;
   pages: PageRepository;
   links: LinkRepository;
   search: SearchService;
@@ -32,15 +32,15 @@ async function createFixture(): Promise<{
   close: () => void;
   roots: { codeBrain: string; kiloCode: string };
 }> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "code-brain-search-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "braincode-search-"));
   tempRoots.push(root);
 
   const roots = {
-    codeBrain: path.join(root, "workspace", "code-brain"),
+    codeBrain: path.join(root, "workspace", "braincode"),
     kiloCode: path.join(root, "workspace", "kilo-code")
   };
 
-  const config: CodeBrainConfig = {
+  const config: BrainCodeConfig = {
     ...getDefaultConfig(),
     brain: {
       repo: path.join(root, "brain"),
@@ -48,7 +48,7 @@ async function createFixture(): Promise<{
     },
     projects: [
       {
-        id: "code-brain",
+        id: "braincode",
         mainBranch: "main",
         roots: [roots.codeBrain],
         gitRemotes: []
@@ -84,11 +84,11 @@ describe("project resolution", () => {
 
     try {
       const resolved = resolveProject(fixture.config, {
-        project: "code-brain",
+        project: "braincode",
         contextPath: path.join(fixture.roots.kiloCode, "src")
       });
 
-      expect(resolved?.projectId).toBe("code-brain");
+      expect(resolved?.projectId).toBe("braincode");
       expect(resolved?.reason).toBe("explicit_project");
     } finally {
       fixture.close();
@@ -104,7 +104,7 @@ describe("search service", () => {
       await fixture.pages.putPage({
         slug: "issue/electron-sandbox-crash",
         content: `---
-project: code-brain
+project: braincode
 type: issue
 title: Electron Sandbox Crash
 scope_refs:
@@ -130,7 +130,7 @@ Electron 沙箱启动崩溃，preload bridge 访问失败。
       await fixture.pages.putPage({
         slug: "practice/preload-bridge-rule",
         content: `---
-project: code-brain
+project: braincode
 type: practice
 title: Preload Bridge Rule
 status: active
@@ -175,7 +175,7 @@ updated_at: 2026-04-18T10:20:00Z
       await fixture.pages.putPage({
         slug: "issue/electron-sandbox-crash",
         content: `---
-project: code-brain
+project: braincode
 type: issue
 title: Electron Sandbox Crash
 status: fixed
@@ -194,7 +194,7 @@ Sandbox crashed.
       await fixture.pages.putPage({
         slug: "change/2026/2026-04-18-preload-bridge-fix",
         content: `---
-project: code-brain
+project: braincode
 type: change
 title: Preload bridge fix
 status: recorded
@@ -211,7 +211,7 @@ Fix preload bridge.
       });
 
       fixture.links.linkPages({
-        project: "code-brain",
+        project: "braincode",
         fromSlug: "change/2026/2026-04-18-preload-bridge-fix",
         toSlug: "issue/electron-sandbox-crash",
         relation: "updates"
@@ -219,7 +219,7 @@ Fix preload bridge.
 
       const response = await fixture.search.search({
         query: "sandbox crashed",
-        project: "code-brain"
+        project: "braincode"
       });
 
       const results = response.results;
@@ -246,7 +246,7 @@ Fix preload bridge.
       await fixture.pages.putPage({
         slug: "issue/electron-sandbox-crash",
         content: `---
-project: code-brain
+project: braincode
 type: issue
 title: Electron Sandbox Crash
 status: fixed
@@ -268,7 +268,7 @@ Electron sandbox crash.
 
       const response = await failingSearch.search({
         query: "electron sandbox crash",
-        project: "code-brain"
+        project: "braincode"
       });
 
       const results = response.results;
@@ -299,7 +299,7 @@ Electron sandbox crash.
       await fixture.pages.putPage({
         slug: "issue/electron-sandbox-crash",
         content: `---
-project: code-brain
+project: braincode
 type: issue
 title: Electron Sandbox Crash
 status: fixed
@@ -318,7 +318,7 @@ Electron sandbox crash.
       await fixture.pages.putPage({
         slug: "practice/preload-bridge-rule",
         content: `---
-project: code-brain
+project: braincode
 type: practice
 title: Preload Bridge Rule
 status: active
@@ -336,7 +336,7 @@ Use the preload bridge safely after a sandbox bridge crash.
 
       const response = await boostedSearch.search({
         query: "electron sandbox crash",
-        project: "code-brain"
+        project: "braincode"
       });
 
       expect(response.results).toHaveLength(2);
@@ -376,7 +376,7 @@ Use the preload bridge safely after a sandbox bridge crash.
       await pagesWithEmbeddings.putPage({
         slug: "practice/preload-bridge-rule",
         content: `---
-project: code-brain
+project: braincode
 type: practice
 title: Preload Bridge Rule
 status: active
@@ -394,7 +394,7 @@ Expose browser-safe APIs over the preload bridge.
 
       const response = await semanticSearch.search({
         query: "renderer safe bridge rule",
-        project: "code-brain"
+        project: "braincode"
       });
 
       expect(response.results[0]?.slug).toBe("practice/preload-bridge-rule");

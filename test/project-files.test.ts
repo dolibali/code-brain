@@ -11,7 +11,7 @@ describe("project docs and tracking files", () => {
     expect(readme).toContain("Cursor");
     expect(readme).toContain("Codex");
     expect(readme).toContain("Gemini CLI");
-    expect(readme).toContain("codebrain put");
+    expect(readme).toContain("braincode put");
   });
 
   it("keeps progress tracking files ready for future agent sessions", async () => {

@@ -1,6 +1,6 @@
-# Code Brain
+# BrainCode
 
-Code Brain is a local-first code knowledge brain for `Claude Code`, `Cursor`, `Codex`, and `Gemini CLI`.
+BrainCode is a local-first code knowledge brain for `Claude Code`, `Cursor`, `Codex`, and `Gemini CLI`.
 It keeps Markdown as the source of truth, SQLite as the index, and exposes the same thin-service surface through both CLI and MCP.
 
 ## Install
@@ -8,13 +8,13 @@ It keeps Markdown as the source of truth, SQLite as the index, and exposes the s
 Global install:
 
 ```bash
-npm install -g code-brain
+npm install -g braincode
 ```
 
 One-shot usage without a global install:
 
 ```bash
-npx code-brain@latest --help
+npx braincode@latest --help
 ```
 
 For local development in this repo:
@@ -28,13 +28,13 @@ For local development in this repo:
 1. Initialize local state:
 
 ```bash
-codebrain init
+braincode init
 ```
 
-If you want a portable workspace-local setup instead of writing under `~/.code-brain`, initialize with an explicit config path:
+If you want a portable workspace-local setup instead of writing under `~/.braincode`, initialize with an explicit config path:
 
 ```bash
-codebrain --config ./tmp/code-brain/config.yaml init
+braincode --config ./tmp/braincode/config.yaml init
 ```
 
 In that mode, the generated `brain` and `state/index.sqlite` paths are written relative to the config file.
@@ -42,7 +42,7 @@ In that mode, the generated `brain` and `state/index.sqlite` paths are written r
 2. Register a project:
 
 ```bash
-codebrain project register \
+braincode project register \
   --id kilo-code \
   --root ~/work/kilo-code \
   --remote github.com/your-org/kilo-code \
@@ -52,19 +52,19 @@ codebrain project register \
 3. Search before editing:
 
 ```bash
-codebrain search "electron 沙箱 崩溃 preload" --context-path "$(pwd)"
+braincode search "electron 沙箱 崩溃 preload" --context-path "$(pwd)"
 ```
 
 4. Read an existing page before rewriting it:
 
 ```bash
-codebrain get issue/electron-sandbox-crash --project kilo-code
+braincode get issue/electron-sandbox-crash --project kilo-code
 ```
 
 5. Put a full Markdown page after a task is stable:
 
 ```bash
-codebrain put change/2026/2026-04-18-preload-bridge-fix \
+braincode put change/2026/2026-04-18-preload-bridge-fix \
   --project kilo-code \
   --file ./change.md
 ```
@@ -72,7 +72,7 @@ codebrain put change/2026/2026-04-18-preload-bridge-fix \
 6. Link evidence to long-lived knowledge:
 
 ```bash
-codebrain link \
+braincode link \
   --project kilo-code \
   --from change/2026/2026-04-18-preload-bridge-fix \
   --to issue/electron-sandbox-crash \
@@ -82,22 +82,22 @@ codebrain link \
 ## CLI Surface
 
 ```bash
-codebrain init
-codebrain serve
-codebrain project list
-codebrain project register --id kilo-code --root ~/work/kilo-code --main-branch main
-codebrain search "query" --project kilo-code
-codebrain list --project kilo-code --types issue,practice
-codebrain get issue/electron-sandbox-crash --project kilo-code
-codebrain put practice/preload-bridge-rule --project kilo-code --file ./practice.md
-codebrain link --project kilo-code --from change/... --to issue/... --relation updates
-codebrain links --project kilo-code --slug issue/electron-sandbox-crash
-codebrain reindex --project kilo-code
+braincode init
+braincode serve
+braincode project list
+braincode project register --id kilo-code --root ~/work/kilo-code --main-branch main
+braincode search "query" --project kilo-code
+braincode list --project kilo-code --types issue,practice
+braincode get issue/electron-sandbox-crash --project kilo-code
+braincode put practice/preload-bridge-rule --project kilo-code --file ./practice.md
+braincode link --project kilo-code --from change/... --to issue/... --relation updates
+braincode links --project kilo-code --slug issue/electron-sandbox-crash
+braincode reindex --project kilo-code
 ```
 
 ## Thin Service Contract
 
-Code Brain v1 intentionally keeps the service thin. The formal tool surface is:
+BrainCode v1 intentionally keeps the service thin. The formal tool surface is:
 
 - `search`
 - `get_page`
@@ -111,7 +111,7 @@ The service does not do `record_change`, automatic dedupe, automatic long-lived 
 
 ## MCP Positioning
 
-Code Brain MCP is **a code knowledge toolset over stdio**, not an autonomous memory agent.
+BrainCode MCP is **a code knowledge toolset over stdio**, not an autonomous memory agent.
 
 - `search` returns candidate page summaries and related changes, not a final synthesized answer
 - `get_page` returns the full Markdown truth page
@@ -122,8 +122,8 @@ Preferred MCP startup command:
 
 ```json
 {
-  "code-brain": {
-    "command": "codebrain",
+  "braincode": {
+    "command": "braincode",
     "args": ["serve"]
   }
 }
@@ -133,12 +133,12 @@ Do not use `npm run serve` in MCP client config. `stdio` MCP requires clean stdo
 
 ## Config
 
-Minimal config created by `codebrain init`:
+Minimal config created by `braincode init`:
 
 ```yaml
 brain:
-  repo: ~/.code-brain/brain
-  index_db: ~/.code-brain/index.sqlite
+  repo: ~/.braincode/brain
+  index_db: ~/.braincode/index.sqlite
 
 projects: []
 
@@ -149,13 +149,13 @@ embedding:
   enabled: false
 
 mcp:
-  name: code-brain
+  name: braincode
   version: 0.2.0
 ```
 
 ### Search-side LLM
 
-Code Brain only uses LLM on the search path:
+BrainCode only uses LLM on the search path:
 
 - query understanding and expansion
 - result reranking
@@ -230,11 +230,11 @@ embedding:
   retries: 2
 ```
 
-If the embedding provider is unavailable, Code Brain falls back to local FTS5.
+If the embedding provider is unavailable, BrainCode falls back to local FTS5.
 
 ## Agent Loop
 
-The recommended shared recipe is documented in [docs/BRAIN_SYNC_RECIPE.md](/Users/zhangrich/work/code-brain/docs/BRAIN_SYNC_RECIPE.md:1).
+The recommended shared recipe is documented in [docs/BRAIN_SYNC_RECIPE.md](/Users/zhangrich/work/braincode/docs/BRAIN_SYNC_RECIPE.md:1).
 
 Short version:
 
@@ -246,10 +246,10 @@ Short version:
 
 Integration notes:
 
-- [Claude Code](/Users/zhangrich/work/code-brain/docs/integrations/claude-code.md:1)
-- [Codex](/Users/zhangrich/work/code-brain/docs/integrations/codex.md:1)
-- [Cursor](/Users/zhangrich/work/code-brain/docs/integrations/cursor.md:1)
-- [Gemini CLI](/Users/zhangrich/work/code-brain/docs/integrations/gemini-cli.md:1)
+- [Claude Code](/Users/zhangrich/work/braincode/docs/integrations/claude-code.md:1)
+- [Codex](/Users/zhangrich/work/braincode/docs/integrations/codex.md:1)
+- [Cursor](/Users/zhangrich/work/braincode/docs/integrations/cursor.md:1)
+- [Gemini CLI](/Users/zhangrich/work/braincode/docs/integrations/gemini-cli.md:1)
 
 ## Notes
 

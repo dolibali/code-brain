@@ -1,4 +1,4 @@
-import type { CodeBrainConfig } from "../config/schema.js";
+import type { BrainCodeConfig } from "../config/schema.js";
 import type { EmbeddingProvider } from "../embedding/provider.js";
 import type { EmbeddingIndexRepository } from "../embedding/repository.js";
 import type { PageType, ScopeRef } from "../pages/schema.js";
@@ -58,7 +58,7 @@ function mergeResults(primary: SearchResult[], secondary: SearchResult[]): Searc
 
 export class SearchService implements SearchServicePort {
   constructor(
-    private readonly config: CodeBrainConfig,
+    private readonly config: BrainCodeConfig,
     private readonly index: IndexDatabase,
     private readonly options?: {
       augmentor?: SearchAugmentor;

@@ -1,5 +1,5 @@
 import type {
-  CodeBrainConfig,
+  BrainCodeConfig,
   EmbeddingConfig,
   LlmConfig,
   ProviderCapability,
@@ -56,7 +56,7 @@ function resolvePresetConfig(input: {
   };
 }
 
-export function resolveSearchLlmProvider(config: CodeBrainConfig): ResolvedProviderConfig {
+export function resolveSearchLlmProvider(config: BrainCodeConfig): ResolvedProviderConfig {
   return resolveLlmProvider(config.llm);
 }
 
@@ -94,7 +94,7 @@ function resolveLlmProvider(config: LlmConfig): ResolvedProviderConfig {
   };
 }
 
-export function resolveSearchEmbeddingProvider(config: CodeBrainConfig): ResolvedProviderConfig {
+export function resolveSearchEmbeddingProvider(config: BrainCodeConfig): ResolvedProviderConfig {
   return resolveEmbeddingProvider(config.embedding);
 }
 

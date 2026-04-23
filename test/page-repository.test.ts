@@ -3,7 +3,7 @@ import path from "node:path";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { getDefaultConfig } from "../src/config/load-config.js";
-import type { CodeBrainConfig } from "../src/config/schema.js";
+import type { BrainCodeConfig } from "../src/config/schema.js";
 import { ValidationError } from "../src/errors/validation-error.js";
 import { PageRepository } from "../src/pages/repository.js";
 import { ensureBrainDirectories } from "../src/projects/project-registry.js";
@@ -21,15 +21,15 @@ afterEach(async () => {
 });
 
 async function createFixture(): Promise<{
-  config: CodeBrainConfig;
+  config: BrainCodeConfig;
   repository: PageRepository;
   index: Awaited<ReturnType<typeof openIndexDatabase>>;
   close: () => void;
 }> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "code-brain-pages-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "braincode-pages-"));
   tempRoots.push(root);
 
-  const config: CodeBrainConfig = {
+  const config: BrainCodeConfig = {
     ...getDefaultConfig(),
     brain: {
       repo: path.join(root, "brain"),
@@ -37,10 +37,10 @@ async function createFixture(): Promise<{
     },
     projects: [
       {
-        id: "code-brain",
+        id: "braincode",
         mainBranch: "main",
         roots: [path.join(root, "workspace")],
-        gitRemotes: ["github.com/example/code-brain"]
+        gitRemotes: ["github.com/example/braincode"]
       }
     ]
   };
@@ -66,7 +66,7 @@ describe("PageRepository", () => {
       const stored = await fixture.repository.putPage({
         slug: "practice/preload-bridge-rule",
         content: `---
-project: code-brain
+project: braincode
 type: practice
 title: Preload Bridge Rule
 tags:
@@ -99,7 +99,7 @@ Use browser-safe bridges.
 
       const row = fixture.index.db
         .prepare("SELECT slug, compiled_truth, timeline_text FROM pages WHERE project = ? AND slug = ?")
-        .get("code-brain", stored.slug) as
+        .get("braincode", stored.slug) as
         | { slug: string; compiled_truth: string; timeline_text: string }
         | undefined;
 
@@ -118,7 +118,7 @@ Use browser-safe bridges.
       await fixture.repository.putPage({
         slug: "issue/electron-sandbox-crash",
         content: `---
-project: code-brain
+project: braincode
 type: issue
 title: Electron Sandbox Crash
 scope_refs:
@@ -140,7 +140,7 @@ Sandbox crashed.
       await fixture.repository.putPage({
         slug: "practice/preload-bridge-rule",
         content: `---
-project: code-brain
+project: braincode
 type: practice
 title: Bridge Rule
 scope_refs:
@@ -160,7 +160,7 @@ Route access through bridge.
       });
 
       const listed = fixture.repository.listPages({
-        project: "code-brain",
+        project: "braincode",
         types: ["practice"],
         scopeRefs: [
           {
@@ -174,7 +174,7 @@ Route access through bridge.
       expect(listed).toHaveLength(1);
       expect(listed[0]?.slug).toBe("practice/preload-bridge-rule");
 
-      const loaded = await fixture.repository.getPage("code-brain", "practice/preload-bridge-rule");
+      const loaded = await fixture.repository.getPage("braincode", "practice/preload-bridge-rule");
       expect(loaded?.frontmatter.title).toBe("Bridge Rule");
       expect(loaded?.content).toContain("Route access through bridge.");
     } finally {
@@ -189,7 +189,7 @@ Route access through bridge.
       const stored = await fixture.repository.putPage({
         slug: "architecture/extension-host-lifecycle",
         content: `---
-project: code-brain
+project: braincode
 type: architecture
 title: Extension Host Lifecycle
 status: current
@@ -206,7 +206,7 @@ Original body.
       });
 
       const updatedMarkdown = `---
-project: code-brain
+project: braincode
 type: architecture
 title: Extension Host Lifecycle
 status: current
@@ -223,8 +223,8 @@ Updated body after manual edit.
 
       await writeFile(stored.markdownPath, updatedMarkdown, "utf8");
 
-      const result = await fixture.repository.reindex({ project: "code-brain" });
-      const reloaded = await fixture.repository.getPage("code-brain", stored.slug);
+      const result = await fixture.repository.reindex({ project: "braincode" });
+      const reloaded = await fixture.repository.getPage("braincode", stored.slug);
 
       expect(result.projects).toBe(1);
       expect(result.pages).toBe(1);
@@ -240,7 +240,7 @@ Updated body after manual edit.
     try {
       await expect(
         fixture.repository.putPage({
-          project: "code-brain",
+          project: "braincode",
           slug: "issue/electron-sandbox-crash",
           content: `---
 project: kilo-code

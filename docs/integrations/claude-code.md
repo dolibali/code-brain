@@ -5,8 +5,8 @@ Preferred setup:
 ```json
 {
   "mcpServers": {
-    "code-brain": {
-      "command": "codebrain",
+    "braincode": {
+      "command": "braincode",
       "args": ["serve"]
     }
   }

@@ -7,7 +7,7 @@ function createPage(
   status: string
 ): string {
   return `---
-project: code-brain
+project: braincode
 type: ${type}
 title: Example ${type}
 tags:
@@ -41,7 +41,7 @@ describe("parsePageMarkdown", () => {
     const parsed = parsePageMarkdown(createPage(type, status));
 
     expect(parsed.frontmatter.type).toBe(type);
-    expect(parsed.frontmatter.project).toBe("code-brain");
+    expect(parsed.frontmatter.project).toBe("braincode");
     expect(parsed.frontmatter.scopeRefs).toHaveLength(1);
     expect(parsed.body).toContain("Some content here.");
   });
@@ -74,7 +74,7 @@ updated_at: 2026-04-18T10:20:00Z
 
   it("rejects invalid slug when frontmatter provides one", () => {
     const invalid = `---
-project: code-brain
+project: braincode
 slug: issue/中文-slug
 type: issue
 title: Bad slug

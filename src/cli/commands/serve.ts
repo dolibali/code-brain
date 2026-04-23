@@ -1,12 +1,12 @@
 import type { Command } from "commander";
-import { serveCodeBrainMcp } from "../../mcp/server.js";
+import { serveBrainCodeMcp } from "../../mcp/server.js";
 import { getConfigPath } from "../helpers.js";
 
 export function registerServeCommand(program: Command): void {
   program
     .command("serve")
-    .description("Run the Code Brain MCP server over stdio")
+    .description("Run the BrainCode MCP server over stdio")
     .action(async (_, command: Command) => {
-      await serveCodeBrainMcp(getConfigPath(command));
+      await serveBrainCodeMcp(getConfigPath(command));
     });
 }

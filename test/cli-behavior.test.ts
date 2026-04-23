@@ -18,25 +18,25 @@ afterEach(async () => {
 });
 
 async function createConfigFile(projectCount = 1): Promise<string> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "code-brain-cli-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "braincode-cli-"));
   tempRoots.push(root);
   const configPath = path.join(root, "config.yaml");
   const projects =
     projectCount === 1
       ? `
 projects:
-  - id: code-brain
+  - id: braincode
     main_branch: main
     roots:
-      - ./workspace/code-brain
+      - ./workspace/braincode
     git_remotes: []
 `
       : `
 projects:
-  - id: code-brain
+  - id: braincode
     main_branch: main
     roots:
-      - ./workspace/code-brain
+      - ./workspace/braincode
     git_remotes: []
   - id: kilo-code
     main_branch: main
@@ -120,7 +120,7 @@ Sandbox crashed.
       "put",
       "issue/electron-sandbox-crash",
       "--project",
-      "code-brain",
+      "braincode",
       "--file",
       markdownPath
     ]);
@@ -139,7 +139,7 @@ Sandbox crashed.
   });
 
   it("bootstraps a minimal config with the init command", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "code-brain-init-"));
+    const root = await mkdtemp(path.join(os.tmpdir(), "braincode-init-"));
     tempRoots.push(root);
     const configPath = path.join(root, "config.yaml");
 

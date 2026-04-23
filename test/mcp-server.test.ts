@@ -4,7 +4,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createCodeBrainMcpServer } from "../src/mcp/server.js";
+import { createBrainCodeMcpServer } from "../src/mcp/server.js";
 
 const tempRoots: string[] = [];
 
@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 async function createConfigFile(): Promise<string> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "code-brain-mcp-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "braincode-mcp-"));
   tempRoots.push(root);
   const configPath = path.join(root, "config.yaml");
   const yaml = `
@@ -26,10 +26,10 @@ brain:
   repo: ./brain
   index_db: ./state/index.sqlite
 projects:
-  - id: code-brain
+  - id: braincode
     main_branch: main
     roots:
-      - ./workspace/code-brain
+      - ./workspace/braincode
     git_remotes: []
 llm:
   enabled: false
@@ -38,13 +38,13 @@ llm:
   return configPath;
 }
 
-describe("Code Brain MCP server", () => {
+describe("BrainCode MCP server", () => {
   it("exposes only thin-service tools and operates on the same backing service as the CLI", async () => {
     const configPath = await createConfigFile();
-    const { server, service } = await createCodeBrainMcpServer(configPath);
+    const { server, service } = await createBrainCodeMcpServer(configPath);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({
-      name: "code-brain-test-client",
+      name: "braincode-test-client",
       version: "0.1.0"
     });
 
@@ -61,7 +61,7 @@ describe("Code Brain MCP server", () => {
       expect(toolNames).not.toContain("upsert_page");
 
       const pageContent = `---
-project: code-brain
+project: braincode
 type: issue
 title: Electron Sandbox Crash
 status: fixed
@@ -80,7 +80,7 @@ updated_at: 2026-04-18T10:20:00Z
         name: "put_page",
         arguments: {
           slug: "issue/electron-sandbox-crash",
-          project: "code-brain",
+          project: "braincode",
           content: pageContent
         }
       });
@@ -89,9 +89,9 @@ updated_at: 2026-04-18T10:20:00Z
         name: "put_page",
         arguments: {
           slug: "change/2026/2026-04-18-preload-bridge-fix",
-          project: "code-brain",
+          project: "braincode",
           content: `---
-project: code-brain
+project: braincode
 type: change
 title: Preload bridge fix
 status: recorded
@@ -111,7 +111,7 @@ Fix preload bridge.
       await client.callTool({
         name: "link_pages",
         arguments: {
-          project: "code-brain",
+          project: "braincode",
           from_slug: "change/2026/2026-04-18-preload-bridge-fix",
           to_slug: "issue/electron-sandbox-crash",
           relation: "updates"
@@ -122,14 +122,14 @@ Fix preload bridge.
         name: "search",
         arguments: {
           query: "electron 沙箱",
-          project: "code-brain"
+          project: "braincode"
         }
       });
 
       const linksResult = await client.callTool({
         name: "get_links",
         arguments: {
-          project: "code-brain",
+          project: "braincode",
           slug: "issue/electron-sandbox-crash"
         }
       });

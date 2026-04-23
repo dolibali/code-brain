@@ -4,22 +4,22 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import YAML from "yaml";
 import { z } from "zod";
 import {
-  CodeBrainConfigSchema,
-  type CodeBrainConfig,
+  BrainCodeConfigSchema,
+  type BrainCodeConfig,
   type ProjectRegistration
 } from "./schema.js";
 
-export const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".code-brain", "config.yaml");
+export const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".braincode", "config.yaml");
 
 export type LoadedConfig = {
   path: string;
   exists: boolean;
-  config: CodeBrainConfig;
+  config: BrainCodeConfig;
 };
 
 type ConfigWriteInput = {
   path?: string;
-  config: CodeBrainConfig;
+  config: BrainCodeConfig;
 };
 
 type RawProjectRegistration = {
@@ -58,13 +58,13 @@ type RawEmbeddingConfig = {
   enabled?: unknown;
 };
 
-export function getDefaultConfig(configFilePath = DEFAULT_CONFIG_PATH): CodeBrainConfig {
+export function getDefaultConfig(configFilePath = DEFAULT_CONFIG_PATH): BrainCodeConfig {
   const home = os.homedir();
   const usePortableDefaults = path.resolve(configFilePath) !== path.resolve(DEFAULT_CONFIG_PATH);
   return {
     brain: {
-      repo: usePortableDefaults ? "./brain" : path.join(home, ".code-brain", "brain"),
-      indexDb: usePortableDefaults ? "./state/index.sqlite" : path.join(home, ".code-brain", "index.sqlite")
+      repo: usePortableDefaults ? "./brain" : path.join(home, ".braincode", "brain"),
+      indexDb: usePortableDefaults ? "./state/index.sqlite" : path.join(home, ".braincode", "index.sqlite")
     },
     projects: [],
     llm: {
@@ -86,14 +86,14 @@ export function getDefaultConfig(configFilePath = DEFAULT_CONFIG_PATH): CodeBrai
       retries: 2
     },
     mcp: {
-      name: "code-brain",
+      name: "braincode",
       version: "0.2.0"
     }
   };
 }
 
 export function resolveConfigPath(explicitPath?: string): string {
-  return explicitPath ?? process.env.CODE_BRAIN_CONFIG ?? DEFAULT_CONFIG_PATH;
+  return explicitPath ?? process.env.BRAINCODE_CONFIG ?? DEFAULT_CONFIG_PATH;
 }
 
 function expandHome(inputPath: string): string {
@@ -224,7 +224,7 @@ function normalizeConfigShape(normalized: unknown): Record<string, unknown> {
   };
 }
 
-function normalizeConfigPaths(config: CodeBrainConfig, configFilePath: string): CodeBrainConfig {
+function normalizeConfigPaths(config: BrainCodeConfig, configFilePath: string): BrainCodeConfig {
   return {
     ...config,
     brain: {
@@ -250,7 +250,7 @@ export async function loadConfig(explicitPath?: string): Promise<LoadedConfig> {
       normalizedRecord.brain !== null && typeof normalizedRecord.brain === "object"
         ? (normalizedRecord.brain as Record<string, unknown>)
         : {};
-    const parsed = CodeBrainConfigSchema.parse({
+    const parsed = BrainCodeConfigSchema.parse({
       ...defaults,
       ...normalizedRecord,
       brain: {
@@ -384,7 +384,7 @@ export async function writeConfig({ path: explicitPath, config }: ConfigWriteInp
   return resolvedPath;
 }
 
-export function upsertProject(config: CodeBrainConfig, project: ProjectRegistration): CodeBrainConfig {
+export function upsertProject(config: BrainCodeConfig, project: ProjectRegistration): BrainCodeConfig {
   const existing = config.projects.findIndex((entry) => entry.id === project.id);
   if (existing === -1) {
     return {

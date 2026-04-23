@@ -8,7 +8,7 @@ export function registerSearchTool(server: McpServer, service: ServiceContext): 
     "search",
     {
       description:
-        "Search candidate Code Brain knowledge pages. Use this before edits or page updates. Returns summaries and related change evidence, not a final synthesized answer.",
+        "Search candidate BrainCode knowledge pages. Use this before edits or page updates. Returns summaries and related change evidence, not a final synthesized answer.",
       inputSchema: {
         query: z.string().min(1),
         project: z.string().optional(),

@@ -39,7 +39,7 @@ async function runCli(repoRoot, args, env) {
 
 async function main() {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "code-brain-mcp-smoke-"));
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "braincode-mcp-smoke-"));
   const configPath = path.join(tempRoot, "config.yaml");
 
   try {
@@ -98,7 +98,7 @@ This page exists for the stdio MCP smoke test.
     );
 
     const client = new Client({
-      name: "code-brain-smoke-client",
+      name: "braincode-smoke-client",
       version: "0.2.0"
     });
     const transport = new StdioClientTransport({

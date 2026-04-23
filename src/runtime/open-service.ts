@@ -1,4 +1,4 @@
-import type { CodeBrainConfig } from "../config/schema.js";
+import type { BrainCodeConfig } from "../config/schema.js";
 import { loadConfig } from "../config/load-config.js";
 import { OpenAiCompatibleEmbeddingProvider } from "../embedding/provider.js";
 import { EmbeddingIndexRepository } from "../embedding/repository.js";
@@ -13,7 +13,7 @@ import { openIndexDatabase } from "../storage/index-db.js";
 
 export type ServiceContext = {
   configPath: string;
-  config: CodeBrainConfig;
+  config: BrainCodeConfig;
   pages: PageService;
   links: LinkService;
   search: SearchServicePort;

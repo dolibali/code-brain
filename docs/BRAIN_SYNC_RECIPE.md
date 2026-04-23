@@ -1,6 +1,6 @@
 # Brain Sync Recipe
 
-`brain_sync_task` is the shared agent recipe for writing Code Brain knowledge without turning the service into a thick memory manager.
+`brain_sync_task` is the shared agent recipe for writing BrainCode knowledge without turning the service into a thick memory manager.
 
 ## Default Loop
 

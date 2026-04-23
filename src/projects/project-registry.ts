@@ -1,6 +1,6 @@
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
-import type { CodeBrainConfig, ProjectRegistration } from "../config/schema.js";
+import type { BrainCodeConfig, ProjectRegistration } from "../config/schema.js";
 import { loadConfig, upsertProject, writeConfig, type LoadedConfig } from "../config/load-config.js";
 
 export type RegisterProjectInput = {
@@ -12,7 +12,7 @@ export type RegisterProjectInput = {
   configPath?: string;
 };
 
-export async function ensureBrainDirectories(config: CodeBrainConfig): Promise<void> {
+export async function ensureBrainDirectories(config: BrainCodeConfig): Promise<void> {
   await mkdir(config.brain.repo, { recursive: true });
   await mkdir(path.dirname(config.brain.indexDb), { recursive: true });
 }

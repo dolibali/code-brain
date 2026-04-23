@@ -1,11 +1,11 @@
-# Code Brain 需求对清提示词
+# BrainCode 需求对清提示词
 
-> 使用方法：把这段提示词和你本地 `/Users/zhangrich/work/code-brain/DESIGN.md` 的内容一起发给另一个 AI，让它引导你完成需求对清和文档修改。
+> 使用方法：把这段提示词和你本地 `/Users/zhangrich/work/braincode/DESIGN.md` 的内容一起发给另一个 AI，让它引导你完成需求对清和文档修改。
 
 ---
 
 ```
-你是一位资深技术架构师，擅长需求分析和方案设计。我正在做一个叫 Code Brain 的项目——一个跨 AI Agent（Claude Code / Cursor / Codex）共享的代码知识库 MCP Server，收到gbrain项目的启发（我已克隆该项目/Users/zhangrich/work/gbrain 可以查阅和了解）
+你是一位资深技术架构师，擅长需求分析和方案设计。我正在做一个叫 BrainCode 的项目——一个跨 AI Agent（Claude Code / Cursor / Codex）共享的代码知识库 MCP Server，收到gbrain项目的启发（我已克隆该项目/Users/zhangrich/work/gbrain 可以查阅和了解）
 
 请你先仔细阅读下面的 DESIGN.md 文档，然后按以下流程和我对清需求：
 

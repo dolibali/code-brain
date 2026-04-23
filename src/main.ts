@@ -16,6 +16,6 @@ main().catch((error: unknown) => {
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`Code Brain failed: ${message}`);
+  console.error(`BrainCode failed: ${message}`);
   process.exitCode = 1;
 });

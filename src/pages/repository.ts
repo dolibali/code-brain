@@ -18,7 +18,7 @@ import type {
   ReindexResult,
   StoredPage
 } from "./types.js";
-import type { CodeBrainConfig } from "../config/schema.js";
+import type { BrainCodeConfig } from "../config/schema.js";
 import type { PageType } from "./schema.js";
 
 function listProjectRows(
@@ -99,7 +99,7 @@ function listProjectRows(
 
 export class PageRepository implements PageService {
   constructor(
-    private readonly config: CodeBrainConfig,
+    private readonly config: BrainCodeConfig,
     private readonly index: IndexDatabase,
     private readonly embedding?: EmbeddingSyncOptions
   ) {}

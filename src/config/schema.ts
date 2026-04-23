@@ -77,11 +77,11 @@ export const EmbeddingConfigSchema = z.object({
 });
 
 export const McpConfigSchema = z.object({
-  name: z.string().min(1).default("code-brain"),
+  name: z.string().min(1).default("braincode"),
   version: z.string().min(1).default("0.2.0")
 });
 
-export const CodeBrainConfigSchema = z.object({
+export const BrainCodeConfigSchema = z.object({
   brain: z.object({
     repo: z.string().min(1),
     indexDb: z.string().min(1)
@@ -104,7 +104,7 @@ export const CodeBrainConfigSchema = z.object({
     retries: 2
   }),
   mcp: McpConfigSchema.default({
-    name: "code-brain",
+    name: "braincode",
     version: "0.2.0"
   })
 });
@@ -118,4 +118,4 @@ export type LlmConfig = z.infer<typeof LlmConfigSchema>;
 export type EmbeddingApiConfig = z.infer<typeof EmbeddingApiConfigSchema>;
 export type EmbeddingConfig = z.infer<typeof EmbeddingConfigSchema>;
 export type McpConfig = z.infer<typeof McpConfigSchema>;
-export type CodeBrainConfig = z.infer<typeof CodeBrainConfigSchema>;
+export type BrainCodeConfig = z.infer<typeof BrainCodeConfigSchema>;

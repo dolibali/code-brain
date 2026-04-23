@@ -14,8 +14,8 @@ export function createCli(): Command {
   const program = new Command();
 
   program
-    .name("codebrain")
-    .description("Code Brain CLI")
+    .name("braincode")
+    .description("BrainCode CLI")
     .showHelpAfterError()
     .showSuggestionAfterError()
     .option("-c, --config <path>", "Path to config.yaml");

@@ -1,5 +1,5 @@
 export { createCli } from "./cli.js";
-export { createCodeBrainMcpServer, serveCodeBrainMcp } from "./mcp/server.js";
+export { createBrainCodeMcpServer, serveBrainCodeMcp } from "./mcp/server.js";
 export { openService, type ServiceContext } from "./runtime/open-service.js";
 export {
   loadConfig,
@@ -9,7 +9,7 @@ export {
   type LoadedConfig
 } from "./config/load-config.js";
 export {
-  type CodeBrainConfig,
+  type BrainCodeConfig,
   type ProjectRegistration,
   type LlmConfig,
   type EmbeddingConfig

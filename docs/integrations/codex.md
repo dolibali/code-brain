@@ -4,8 +4,8 @@ Preferred setup is MCP over stdio:
 
 ```json
 {
-  "code-brain": {
-    "command": "codebrain",
+  "braincode": {
+    "command": "braincode",
     "args": ["serve"]
   }
 }

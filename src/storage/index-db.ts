@@ -1,7 +1,7 @@
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
-import type { CodeBrainConfig } from "../config/schema.js";
+import type { BrainCodeConfig } from "../config/schema.js";
 import { runMigrations } from "./migrator.js";
 
 export type IndexDatabase = {
@@ -12,7 +12,7 @@ export type IndexDatabase = {
   close: () => void;
 };
 
-export async function openIndexDatabase(config: CodeBrainConfig): Promise<IndexDatabase> {
+export async function openIndexDatabase(config: BrainCodeConfig): Promise<IndexDatabase> {
   await mkdir(path.dirname(config.brain.indexDb), { recursive: true });
   const db = new DatabaseSync(config.brain.indexDb);
 

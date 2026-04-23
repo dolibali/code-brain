@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { openService, type ServiceContext } from "../runtime/open-service.js";
 import { registerTools } from "./tools/index.js";
 
-export async function createCodeBrainMcpServer(configPath?: string): Promise<{
+export async function createBrainCodeMcpServer(configPath?: string): Promise<{
   server: McpServer;
   service: ServiceContext;
 }> {
@@ -17,8 +17,8 @@ export async function createCodeBrainMcpServer(configPath?: string): Promise<{
   return { server, service };
 }
 
-export async function serveCodeBrainMcp(configPath?: string): Promise<void> {
-  const { server, service } = await createCodeBrainMcpServer(configPath);
+export async function serveBrainCodeMcp(configPath?: string): Promise<void> {
+  const { server, service } = await createBrainCodeMcpServer(configPath);
   const transport = new StdioServerTransport();
   transport.onclose = () => {
     service.close();

@@ -1,12 +1,12 @@
 [
   {
     "category": "functional",
-    "description": "CLI can load config from ~/.code-brain/config.yaml or CODE_BRAIN_CONFIG with sane defaults",
+    "description": "CLI can load config from ~/.braincode/config.yaml or BRAINCODE_CONFIG with sane defaults",
     "steps": [
       "Delete any temporary test config file",
       "Run `npm run cli -- doctor` in a clean environment",
       "Verify the command prints resolved config paths and does not crash",
-      "Create a custom config file and set CODE_BRAIN_CONFIG to that path",
+      "Create a custom config file and set BRAINCODE_CONFIG to that path",
       "Run `npm run cli -- doctor` again and verify the custom path is reported"
     ],
     "passes": true
@@ -16,7 +16,7 @@
     "description": "Project registry can register and list multiple projects in config and index",
     "steps": [
       "Run `npm run cli -- project register --id kilo-code --root ~/work/kilo-code --remote github.com/example/kilo-code`",
-      "Run `npm run cli -- project register --id code-brain --root ~/work/code-brain`",
+      "Run `npm run cli -- project register --id braincode --root ~/work/braincode`",
       "Run `npm run cli -- project list`",
       "Verify both projects appear with ids, roots, and remotes",
       "Inspect config file and verify both registrations were persisted"

@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { CodeBrainConfig } from "../config/schema.js";
+import type { BrainCodeConfig } from "../config/schema.js";
 
 export type ResolveProjectInput = {
   project?: string;
@@ -16,7 +16,7 @@ function normalizePath(input: string): string {
   return path.resolve(input);
 }
 
-function matchProjectByPath(config: CodeBrainConfig, candidatePath?: string): string | null {
+function matchProjectByPath(config: BrainCodeConfig, candidatePath?: string): string | null {
   if (!candidatePath) {
     return null;
   }
@@ -35,7 +35,7 @@ function matchProjectByPath(config: CodeBrainConfig, candidatePath?: string): st
   return matches[0]?.id ?? null;
 }
 
-export function resolveProject(config: CodeBrainConfig, input: ResolveProjectInput): ResolvedProject | null {
+export function resolveProject(config: BrainCodeConfig, input: ResolveProjectInput): ResolvedProject | null {
   if (input.project) {
     const exists = config.projects.some((project) => project.id === input.project);
     if (!exists) {

@@ -1,19 +1,19 @@
 import path from "node:path";
-import type { CodeBrainConfig } from "../config/schema.js";
+import type { BrainCodeConfig } from "../config/schema.js";
 import { singleValidationError } from "../errors/validation-error.js";
 import { resolveProject } from "../projects/resolve-project.js";
 
-export function findProject(config: CodeBrainConfig, projectId: string): { id: string } {
+export function findProject(config: BrainCodeConfig, projectId: string): { id: string } {
   const project = config.projects.find((entry) => entry.id === projectId);
   if (!project) {
-    throw new Error(`Unknown project '${projectId}'. Register it first with 'codebrain project register'.`);
+    throw new Error(`Unknown project '${projectId}'. Register it first with 'braincode project register'.`);
   }
 
   return project;
 }
 
 export function resolveStoredProject(input: {
-  config: CodeBrainConfig;
+  config: BrainCodeConfig;
   frontmatterProject: string;
   project?: string;
   contextPath?: string;
@@ -43,7 +43,7 @@ export function resolveStoredProject(input: {
   return input.frontmatterProject;
 }
 
-export function selectProjectForRead(config: CodeBrainConfig, project?: string): string {
+export function selectProjectForRead(config: BrainCodeConfig, project?: string): string {
   const resolved = resolveProject(config, {
     project,
     cwd: process.cwd()
@@ -56,7 +56,7 @@ export function selectProjectForRead(config: CodeBrainConfig, project?: string):
   return resolved.projectId;
 }
 
-export function resolveProjectPagesRoot(config: CodeBrainConfig, projectId: string): string {
+export function resolveProjectPagesRoot(config: BrainCodeConfig, projectId: string): string {
   findProject(config, projectId);
   return path.join(config.brain.repo, "projects", projectId, "pages");
 }

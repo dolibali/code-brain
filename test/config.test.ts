@@ -17,7 +17,7 @@ afterEach(async () => {
 });
 
 async function createTempRoot(): Promise<string> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "code-brain-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "braincode-"));
   tempRoots.push(root);
   return root;
 }
@@ -32,7 +32,7 @@ describe("config loading", () => {
     expect(loaded.exists).toBe(false);
     expect(loaded.path).toBe(configPath);
     expect(loaded.config.projects).toHaveLength(0);
-    expect(loaded.config.mcp.name).toBe("code-brain");
+    expect(loaded.config.mcp.name).toBe("braincode");
     expect(loaded.config.brain.repo).toBe(path.join(root, "brain"));
     expect(loaded.config.brain.indexDb).toBe(path.join(root, "state", "index.sqlite"));
   });
@@ -40,8 +40,8 @@ describe("config loading", () => {
   it("keeps home defaults for the standard config path", () => {
     const defaults = getDefaultConfig();
 
-    expect(defaults.brain.repo).toContain(path.join(".code-brain", "brain"));
-    expect(defaults.brain.indexDb).toContain(path.join(".code-brain", "index.sqlite"));
+    expect(defaults.brain.repo).toContain(path.join(".braincode", "brain"));
+    expect(defaults.brain.indexDb).toContain(path.join(".braincode", "index.sqlite"));
   });
 
   it("writes and reloads projects using snake_case yaml keys", async () => {
@@ -49,10 +49,10 @@ describe("config loading", () => {
     const configPath = path.join(root, "config.yaml");
     const loaded = await loadConfig(configPath);
     const nextConfig = upsertProject(loaded.config, {
-      id: "code-brain",
+      id: "braincode",
       mainBranch: "main",
       roots: [path.join(root, "workspace")],
-      gitRemotes: ["github.com/example/code-brain"]
+      gitRemotes: ["github.com/example/braincode"]
     });
 
     await writeConfig({ path: configPath, config: nextConfig });
@@ -183,7 +183,7 @@ describe("index initialization", () => {
       },
       projects: [
         {
-          id: "code-brain",
+          id: "braincode",
           mainBranch: "main",
           roots: [root],
           gitRemotes: []

@@ -6,12 +6,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "node is required to develop Code Brain." >&2
+  echo "node is required to develop BrainCode." >&2
   exit 1
 fi
 
 if ! command -v npm >/dev/null 2>&1; then
-  echo "npm is required to develop Code Brain." >&2
+  echo "npm is required to develop BrainCode." >&2
   exit 1
 fi
 
@@ -22,7 +22,7 @@ echo "==> Running typecheck"
 npm run typecheck
 
 echo
-echo "Code Brain bootstrap complete."
+echo "BrainCode bootstrap complete."
 echo "Useful commands:"
 echo "  npm run doctor"
 echo "  npm run cli -- --help"
