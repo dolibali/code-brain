@@ -6,37 +6,7 @@ import { resolveProject } from "../projects/resolve-project.js";
 import type { IndexDatabase } from "../storage/index-db.js";
 import { buildFtsQuery } from "./normalize.js";
 import type { QueryExpansion, SearchAugmentor } from "./augmentor.js";
-
-export type SearchInput = {
-  query: string;
-  project?: string;
-  contextPath?: string;
-  global?: boolean;
-  types?: PageType[];
-  scopeRefs?: ScopeRef[];
-  limit?: number;
-};
-
-export type SearchResult = {
-  project: string;
-  slug: string;
-  type: PageType;
-  title: string;
-  summary: string;
-  markdownPath: string;
-  score: number;
-  relatedChanges: string[];
-};
-
-export type SearchResponse = {
-  results: SearchResult[];
-  strategy: {
-    queryExpansionUsed: boolean;
-    reranked: boolean;
-    embeddingUsed: boolean;
-    degraded: boolean;
-  };
-};
+import type { SearchInput, SearchResponse, SearchResult, SearchServicePort } from "./types.js";
 
 type LocalRow = {
   project: string;
@@ -86,7 +56,7 @@ function mergeResults(primary: SearchResult[], secondary: SearchResult[]): Searc
   return stableSort([...merged.values()]);
 }
 
-export class SearchService {
+export class SearchService implements SearchServicePort {
   constructor(
     private readonly config: CodeBrainConfig,
     private readonly index: IndexDatabase,

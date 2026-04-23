@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { OpenAiCompatibleClient } from "../llm/openai-compatible-client.js";
-import type { SearchInput, SearchResult } from "./search-service.js";
+import type { SearchInput, SearchResult } from "./types.js";
 
 const ScopeKindSchema = z.enum(["repo", "module", "file", "symbol"]);
 

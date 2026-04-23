@@ -1,28 +1,38 @@
 Session: 2026-04-24
 
 What was implemented
-- Continued the release-hardening pass after the thin-service + model-adapter work.
-- Changed `codebrain init --config <path>` to behave as a portable setup:
-  when the config path is explicit and non-default, generated `brain` and `state/index.sqlite` paths are written relative to that config file instead of silently pointing at `~/.code-brain`.
-- Updated config loading so missing custom config files resolve to config-relative runtime paths, while the standard default path still keeps home-based defaults.
-- Added a dedicated stdio MCP smoke script at `scripts/smoke-mcp.mjs`.
-  It bootstraps a temp config, writes a sample page, connects to `codebrain serve` over MCP stdio, and verifies `search` + `get_page`.
-- Updated README to document portable `init --config` behavior and the new smoke-test workflow.
+- Refactored the biggest architectural hotspots without changing the thin-service behavior.
+- Split the CLI into modular command files under `src/cli/commands/` with shared helpers in `src/cli/helpers.ts`.
+  `src/cli.ts` is now just a thin compatibility export to `src/cli/index.ts`.
+- Split page storage responsibilities:
+  - `src/pages/repository.ts` now acts as the coordinator
+  - `src/pages/page-filesystem.ts` owns Markdown file walking/parsing/writes
+  - `src/pages/page-indexer.ts` owns SQLite index synchronization
+  - `src/pages/page-project.ts` owns project resolution helpers
+  - `src/pages/types.ts` defines DTOs and the `PageService` interface
+- Split MCP registration:
+  - `src/mcp/server.ts` now only creates and serves the MCP server
+  - `src/mcp/tools/*.ts` register individual tools
+  - `src/mcp/helpers.ts` centralizes result/error handling
+- Split storage migration logic:
+  - `src/storage/index-db.ts` now only opens the DB and delegates to `runMigrations`
+  - `src/storage/migrator.ts` introduces a lightweight migration runner with `schema_migrations`
+  - `src/storage/migrations/00x-*.ts` holds explicit migration steps
+- Added lightweight interface/type layers for `pages`, `links`, and `search`, and updated `open-service.ts` to expose interface-shaped service ports instead of concrete class types.
 
 Current status
 - `npm run typecheck` passes
 - `npm test` passes
 - `npm run build` passes
 - `npm run smoke:mcp` passes
-- Total automated tests: 31 passing
+- No command surface or MCP tool names changed during the refactor
 
 Important notes
-- Default config path still uses `~/.code-brain`.
-- Explicit config paths now default to `./brain` and `./state/index.sqlite` relative to the config file.
-- Search is still async internally because LLM expansion/reranking and embedding lookup can be remote operations.
-- The package still uses Node's built-in `node:sqlite`, so experimental warnings may appear depending on the Node version.
+- This was an internal architecture cleanup; external behavior should remain the same.
+- `feature_list.json` remains fully passing and was not changed.
+- The codebase now has clearer seams for future work on storage, MCP tools, and CLI commands.
 
 What should be worked on next
-- Consider replacing `node:sqlite` with a stable production driver if install/runtime stability becomes a blocker.
-- Add real provider integration smoke tests against one OpenAI-compatible vendor if you want higher confidence beyond mocks.
-- Consider whether to add one more smoke path that validates the published tarball can run `smoke:mcp`-equivalent checks after install.
+- Decide whether to continue the light abstraction pass by moving `search` and `links` SQL helpers into their own modules, or stop here.
+- Revisit whether test co-location is worth doing after a few more modules grow.
+- Continue evaluating whether `node:sqlite` should eventually be replaced for production stability.

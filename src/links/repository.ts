@@ -1,26 +1,6 @@
 import type { IndexDatabase } from "../storage/index-db.js";
 import { normalizePageRef } from "../pages/page-ref.js";
-
-export type LinkDirection = "incoming" | "outgoing" | "both";
-
-export type LinkPageInput = {
-  project: string;
-  fromSlug: string;
-  toSlug: string;
-  relation: string;
-  context?: string;
-};
-
-export type RetrievedLink = {
-  direction: "incoming" | "outgoing";
-  relation: string;
-  fromSlug: string;
-  toSlug: string;
-  otherSlug: string;
-  otherType: string | null;
-  otherTitle: string | null;
-  context: string | null;
-};
+import type { GetLinksInput, LinkPageInput, LinkService, RetrievedLink } from "./types.js";
 
 function assertPageExists(index: IndexDatabase, project: string, slug: string): void {
   const row = index.db
@@ -32,7 +12,7 @@ function assertPageExists(index: IndexDatabase, project: string, slug: string): 
   }
 }
 
-export class LinkRepository {
+export class LinkRepository implements LinkService {
   constructor(private readonly index: IndexDatabase) {}
 
   linkPages(input: LinkPageInput): void {
@@ -49,7 +29,7 @@ export class LinkRepository {
     `).run(input.project, fromSlug, toSlug, input.relation, input.context ?? null);
   }
 
-  getLinks(input: { project: string; slug: string; direction?: LinkDirection }): RetrievedLink[] {
+  getLinks(input: GetLinksInput): RetrievedLink[] {
     const slug = normalizePageRef(input.slug);
     const direction = input.direction ?? "both";
     const rows: RetrievedLink[] = [];
@@ -141,4 +121,3 @@ export class LinkRepository {
     return rows;
   }
 }
-

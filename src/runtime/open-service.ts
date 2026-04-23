@@ -1,22 +1,22 @@
-import { LinkRepository } from "../links/repository.js";
 import type { CodeBrainConfig } from "../config/schema.js";
 import { loadConfig } from "../config/load-config.js";
 import { OpenAiCompatibleEmbeddingProvider } from "../embedding/provider.js";
 import { EmbeddingIndexRepository } from "../embedding/repository.js";
+import { LinkRepository, type LinkService } from "../links/index.js";
 import { OpenAiCompatibleClient } from "../llm/openai-compatible-client.js";
 import { resolveSearchEmbeddingProvider, resolveSearchLlmProvider } from "../llm/provider-config.js";
-import { PageRepository } from "../pages/repository.js";
+import { PageRepository, type PageService } from "../pages/index.js";
 import { ensureBrainDirectories } from "../projects/project-registry.js";
 import { LlmSearchAugmentor } from "../search/augmentor.js";
-import { SearchService } from "../search/search-service.js";
+import { SearchService, type SearchServicePort } from "../search/index.js";
 import { openIndexDatabase } from "../storage/index-db.js";
 
 export type ServiceContext = {
   configPath: string;
   config: CodeBrainConfig;
-  pages: PageRepository;
-  links: LinkRepository;
-  search: SearchService;
+  pages: PageService;
+  links: LinkService;
+  search: SearchServicePort;
   close: () => void;
 };
 
