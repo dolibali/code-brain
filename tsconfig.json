@@ -5,6 +5,7 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": ".",
+    "declaration": true,
     "strict": true,
     "noEmitOnError": true,
     "esModuleInterop": true,
@@ -15,4 +16,3 @@
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }
-

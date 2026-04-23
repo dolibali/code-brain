@@ -139,7 +139,20 @@ Fix preload bridge.
 
       expect(searchText).toContain("issue/electron-sandbox-crash");
       expect(searchText).toContain("change/2026/2026-04-18-preload-bridge-fix");
+      expect(searchText).toContain("\"strategy\"");
       expect(linksText).toContain("updates");
+
+      const validationResult = await client.callTool({
+        name: "put_page",
+        arguments: {
+          slug: "issue/electron-sandbox-crash",
+          project: "kilo-code",
+          content: pageContent
+        }
+      });
+      const validationText =
+        (validationResult as { content: Array<{ type: string; text?: string }> }).content[0]?.text ?? "";
+      expect(validationText).toContain("\"validation_failed\"");
     } finally {
       await client.close();
       await server.close();
@@ -147,4 +160,3 @@ Fix preload bridge.
     }
   });
 });
-

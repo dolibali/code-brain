@@ -45,6 +45,19 @@ type RawLlmConfig = {
   enabled?: unknown;
 };
 
+type RawEmbeddingConfig = {
+  provider?: unknown;
+  defaultProvider?: unknown;
+  api?: unknown;
+  providers?: unknown;
+  routing?: unknown;
+  model?: unknown;
+  dimensions?: unknown;
+  timeoutMs?: unknown;
+  retries?: unknown;
+  enabled?: unknown;
+};
+
 export function getDefaultConfig(): CodeBrainConfig {
   const home = os.homedir();
   return {
@@ -64,9 +77,16 @@ export function getDefaultConfig(): CodeBrainConfig {
       timeoutMs: 8000,
       retries: 2
     },
+    embedding: {
+      enabled: false,
+      providers: {},
+      routing: {},
+      timeoutMs: 8000,
+      retries: 2
+    },
     mcp: {
       name: "code-brain",
-      version: "0.1.0"
+      version: "0.2.0"
     }
   };
 }
@@ -163,6 +183,26 @@ function normalizeLlmConfig(raw: RawLlmConfig | undefined): Record<string, unkno
   };
 }
 
+function normalizeEmbeddingConfig(raw: RawEmbeddingConfig | undefined): Record<string, unknown> {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+
+  return {
+    ...raw,
+    provider: typeof raw.provider === "string" ? raw.provider : raw.defaultProvider,
+    routing:
+      raw.routing && typeof raw.routing === "object"
+        ? {
+            search:
+              typeof (raw.routing as Record<string, unknown>).search === "string"
+                ? (raw.routing as Record<string, unknown>).search
+                : undefined
+          }
+        : undefined
+  };
+}
+
 function normalizeConfigShape(normalized: unknown): Record<string, unknown> {
   const record =
     normalized !== null && typeof normalized === "object"
@@ -173,11 +213,13 @@ function normalizeConfigShape(normalized: unknown): Record<string, unknown> {
     ? record.projects.map((project) => normalizeProjectRegistration(project as RawProjectRegistration))
     : [];
   const llm = normalizeLlmConfig(record.llm as RawLlmConfig | undefined);
+  const embedding = normalizeEmbeddingConfig(record.embedding as RawEmbeddingConfig | undefined);
 
   return {
     ...record,
     projects,
-    llm
+    llm,
+    embedding
   };
 }
 
@@ -217,6 +259,10 @@ export async function loadConfig(explicitPath?: string): Promise<LoadedConfig> {
       llm: {
         ...defaults.llm,
         ...(normalizedRecord.llm as Record<string, unknown> | undefined)
+      },
+      embedding: {
+        ...defaults.embedding,
+        ...(normalizedRecord.embedding as Record<string, unknown> | undefined)
       },
       mcp: {
         ...defaults.mcp,
@@ -296,6 +342,37 @@ export async function writeConfig({ path: explicitPath, config }: ConfigWriteInp
       timeout_ms: config.llm.timeoutMs,
       retries: config.llm.retries
     },
+    embedding: {
+      enabled: config.embedding.enabled,
+      provider: config.embedding.provider,
+      api: config.embedding.api
+        ? {
+            mode: config.embedding.api.mode,
+            base_url: config.embedding.api.baseUrl,
+            api_key_env: config.embedding.api.apiKeyEnv,
+            default_model: config.embedding.api.defaultModel
+          }
+        : undefined,
+      model: config.embedding.model,
+      providers: Object.fromEntries(
+        Object.entries(config.embedding.providers).map(([name, provider]) => [
+          name,
+          {
+            mode: provider.mode,
+            base_url: provider.baseUrl,
+            api_key_env: provider.apiKeyEnv,
+            default_model: provider.defaultModel,
+            capabilities: provider.capabilities
+          }
+        ])
+      ),
+      routing: {
+        search: config.embedding.routing.search
+      },
+      dimensions: config.embedding.dimensions,
+      timeout_ms: config.embedding.timeoutMs,
+      retries: config.embedding.retries
+    },
     mcp: {
       name: config.mcp.name,
       version: config.mcp.version
@@ -322,4 +399,3 @@ export function upsertProject(config: CodeBrainConfig, project: ProjectRegistrat
     projects: nextProjects
   };
 }
-

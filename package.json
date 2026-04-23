@@ -1,10 +1,25 @@
 {
   "name": "code-brain",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
+  "private": false,
+  "description": "A local-first code knowledge brain with CLI and MCP interfaces for AI coding agents.",
+  "license": "MIT",
   "type": "module",
+  "main": "./dist/src/index.js",
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/src",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
-    "codebrain": "./dist/main.js"
+    "codebrain": "./dist/src/main.js"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -12,6 +27,7 @@
     "dev": "tsx src/main.ts",
     "cli": "tsx src/main.ts",
     "serve": "tsx src/main.ts serve",
+    "prepack": "npm run build",
     "test": "vitest run"
   },
   "dependencies": {

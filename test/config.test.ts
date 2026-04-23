@@ -123,10 +123,48 @@ llm:
     expect(loaded.config.llm.routing.search).toBe("deepseek");
     expect(loaded.config.llm.request.extraBody).toEqual({});
   });
+
+  it("loads embedding config independently from llm routing", async () => {
+    const root = await createTempRoot();
+    const configPath = path.join(root, "config.yaml");
+    const yaml = `
+brain:
+  repo: ./brain
+  index_db: ./state/index.sqlite
+projects: []
+llm:
+  enabled: false
+embedding:
+  enabled: true
+  provider: qwen_bailian
+  model: text-embedding-v4
+  providers:
+    qwen_bailian:
+      mode: openai-compatible
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key_env: DASHSCOPE_API_KEY
+      default_model: text-embedding-v4
+      capabilities: [embeddings]
+  routing:
+    search: qwen_bailian
+  dimensions: 1024
+  timeout_ms: 5000
+  retries: 1
+`;
+
+    await writeFile(configPath, yaml, "utf8");
+    const loaded = await loadConfig(configPath);
+
+    expect(loaded.config.embedding.enabled).toBe(true);
+    expect(loaded.config.embedding.provider).toBe("qwen_bailian");
+    expect(loaded.config.embedding.routing.search).toBe("qwen_bailian");
+    expect(loaded.config.embedding.model).toBe("text-embedding-v4");
+    expect(loaded.config.embedding.dimensions).toBe(1024);
+  });
 });
 
 describe("index initialization", () => {
-  it("creates schema, enables WAL mode, and does not create ingest_events", async () => {
+  it("creates schema, enables WAL mode, and provisions embedding storage without ingest_events", async () => {
     const root = await createTempRoot();
     const config = {
       ...getDefaultConfig(),
@@ -158,10 +196,10 @@ describe("index initialization", () => {
       expect(index.getJournalMode().toLowerCase()).toBe("wal");
       expect(tables.map((table) => table.name)).toContain("projects");
       expect(tables.map((table) => table.name)).toContain("pages");
+      expect(tables.map((table) => table.name)).toContain("page_embeddings");
       expect(tables.map((table) => table.name)).not.toContain("ingest_events");
     } finally {
       index.close();
     }
   });
 });
-

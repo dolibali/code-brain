@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { Command } from "commander";
-import { loadConfig } from "./config/load-config.js";
+import { getDefaultConfig, loadConfig, writeConfig } from "./config/load-config.js";
 import { serveCodeBrainMcp } from "./mcp/server.js";
 import type { PageType, ScopeKind, ScopeRef } from "./pages/schema.js";
 import { normalizePageRef } from "./pages/page-ref.js";
@@ -89,6 +89,51 @@ export function createCli(): Command {
     .option("-c, --config <path>", "Path to config.yaml");
 
   program
+    .command("init")
+    .description("Create a minimal config and bootstrap local state")
+    .option("--force", "Overwrite an existing config file", false)
+    .action(async (commandOptions, command: Command) => {
+      const options = command.parent?.opts<GlobalOptions>() ?? {};
+      const configPath = resolveOptionalConfigPath(options.config);
+      const loaded = await loadConfig(configPath);
+
+      if (loaded.exists && !commandOptions.force) {
+        await ensureBrainDirectories(loaded.config);
+        const index = await openIndexDatabase(loaded.config);
+        try {
+          index.initialize();
+          index.syncProjects();
+        } finally {
+          index.close();
+        }
+
+        console.log(`config_path: ${loaded.path}`);
+        console.log("status: existing_config_reused");
+        return;
+      }
+
+      const defaultConfig = getDefaultConfig();
+      const savedPath = await writeConfig({
+        path: configPath,
+        config: defaultConfig
+      });
+      const nextLoaded = await loadConfig(savedPath);
+      await ensureBrainDirectories(nextLoaded.config);
+
+      const index = await openIndexDatabase(nextLoaded.config);
+      try {
+        index.initialize();
+        index.syncProjects();
+      } finally {
+        index.close();
+      }
+
+      console.log(`config_path: ${savedPath}`);
+      console.log(`brain_repo: ${nextLoaded.config.brain.repo}`);
+      console.log(`index_db: ${nextLoaded.config.brain.indexDb}`);
+    });
+
+  program
     .command("serve")
     .description("Run the Code Brain MCP server over stdio")
     .action(async (_, command: Command) => {
@@ -163,7 +208,7 @@ export function createCli(): Command {
       const service = await openService(resolveOptionalConfigPath(options.config));
 
       try {
-        const results = service.search.search({
+        const response = await service.search.search({
           query,
           project: commandOptions.project,
           contextPath: commandOptions.contextPath,
@@ -173,6 +218,7 @@ export function createCli(): Command {
           limit: Number(commandOptions.limit)
         });
 
+        const results = response.results;
         if (results.length === 0) {
           console.log("No results found.");
           return;
@@ -362,4 +408,3 @@ export function createCli(): Command {
 
   return program;
 }
-

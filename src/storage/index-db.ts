@@ -66,6 +66,7 @@ export async function openIndexDatabase(config: CodeBrainConfig): Promise<IndexD
 function migrateDerivedSchema(db: DatabaseSync): void {
   ensureProjectsColumns(db);
   ensurePagesColumns(db);
+  ensureEmbeddingSchema(db);
   ensureFtsSchema(db);
   rebuildPagesFts(db);
   db.exec(`
@@ -142,6 +143,21 @@ function ensurePagesColumns(db: DatabaseSync): void {
       db.exec(addition.sql);
     }
   }
+}
+
+function ensureEmbeddingSchema(db: DatabaseSync): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS page_embeddings (
+      project TEXT NOT NULL REFERENCES projects(id),
+      slug TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      embedding_model TEXT NOT NULL,
+      dimensions INTEGER NOT NULL,
+      vector_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (project, slug)
+    )
+  `);
 }
 
 function ensureFtsSchema(db: DatabaseSync): void {
@@ -246,4 +262,3 @@ function parseJsonArray(input: string): string[] {
     return [];
   }
 }
-

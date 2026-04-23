@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ProviderCapabilitySchema = z.enum(["chat_completions", "reasoning_control"]);
+export const ProviderCapabilitySchema = z.enum(["chat_completions", "reasoning_control", "embeddings"]);
 
 export const ProviderPresetSchema = z.object({
   mode: z.literal("openai-compatible"),
@@ -53,9 +53,32 @@ export const LlmConfigSchema = z.object({
   retries: z.number().int().nonnegative().default(2)
 });
 
+export const EmbeddingApiConfigSchema = z.object({
+  mode: z.literal("openai-compatible"),
+  baseUrl: z.string().url(),
+  apiKeyEnv: z.string().min(1),
+  defaultModel: z.string().min(1)
+});
+
+export const EmbeddingConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  provider: z.string().optional(),
+  api: EmbeddingApiConfigSchema.optional(),
+  model: z.string().min(1).optional(),
+  providers: z.record(z.string(), ProviderPresetSchema).default({}),
+  routing: z
+    .object({
+      search: z.string().optional()
+    })
+    .default({}),
+  dimensions: z.number().int().positive().optional(),
+  timeoutMs: z.number().int().positive().default(8000),
+  retries: z.number().int().nonnegative().default(2)
+});
+
 export const McpConfigSchema = z.object({
   name: z.string().min(1).default("code-brain"),
-  version: z.string().min(1).default("0.1.0")
+  version: z.string().min(1).default("0.2.0")
 });
 
 export const CodeBrainConfigSchema = z.object({
@@ -69,13 +92,20 @@ export const CodeBrainConfigSchema = z.object({
     models: {},
     providers: {},
     routing: {},
-    request: { extraBody: {} },
+      request: { extraBody: {} },
+      timeoutMs: 8000,
+      retries: 2
+    }),
+  embedding: EmbeddingConfigSchema.default({
+    enabled: false,
+    providers: {},
+    routing: {},
     timeoutMs: 8000,
     retries: 2
   }),
   mcp: McpConfigSchema.default({
     name: "code-brain",
-    version: "0.1.0"
+    version: "0.2.0"
   })
 });
 
@@ -85,6 +115,7 @@ export type ProjectRegistration = z.infer<typeof ProjectRegistrationSchema>;
 export type LlmApiConfig = z.infer<typeof LlmApiConfigSchema>;
 export type LlmModelOverride = z.infer<typeof LlmModelOverrideSchema>;
 export type LlmConfig = z.infer<typeof LlmConfigSchema>;
+export type EmbeddingApiConfig = z.infer<typeof EmbeddingApiConfigSchema>;
+export type EmbeddingConfig = z.infer<typeof EmbeddingConfigSchema>;
 export type McpConfig = z.infer<typeof McpConfigSchema>;
 export type CodeBrainConfig = z.infer<typeof CodeBrainConfigSchema>;
-

@@ -4,6 +4,7 @@ import { mkdtemp } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { getDefaultConfig } from "../src/config/load-config.js";
 import type { CodeBrainConfig } from "../src/config/schema.js";
+import { EmbeddingIndexRepository } from "../src/embedding/repository.js";
 import { LinkRepository } from "../src/links/repository.js";
 import { PageRepository } from "../src/pages/repository.js";
 import { ensureBrainDirectories } from "../src/projects/project-registry.js";
@@ -145,7 +146,7 @@ updated_at: 2026-04-18T10:20:00Z
 `
       });
 
-      const results = fixture.search.search({
+      const response = await fixture.search.search({
         query: "electron 沙箱 崩溃 preload",
         contextPath: path.join(fixture.roots.codeBrain, "src"),
         types: ["issue"],
@@ -158,6 +159,7 @@ updated_at: 2026-04-18T10:20:00Z
         limit: 5
       });
 
+      const results = response.results;
       expect(results).toHaveLength(1);
       expect(results[0]?.slug).toBe("issue/electron-sandbox-crash");
       expect(results[0]?.type).toBe("issue");
@@ -215,25 +217,29 @@ Fix preload bridge.
         relation: "updates"
       });
 
-      const results = fixture.search.search({
+      const response = await fixture.search.search({
         query: "sandbox crashed",
         project: "code-brain"
       });
 
+      const results = response.results;
       expect(results[0]?.relatedChanges).toContain("change/2026/2026-04-18-preload-bridge-fix");
     } finally {
       fixture.close();
     }
   });
 
-  it("falls back to local ranking when the LLM rerank hook fails", async () => {
+  it("falls back to local ranking when the LLM augmentor fails", async () => {
     const fixture = await createFixture();
 
     try {
       fixture.config.llm.enabled = true;
       const failingSearch = new SearchService(fixture.config, fixture.index, {
-        rerank: () => {
-          throw new Error("simulated llm failure");
+        augmentor: {
+          expandQuery: async () => {
+            throw new Error("simulated llm failure");
+          },
+          rerankResults: async (_input, results) => results
         }
       });
 
@@ -260,13 +266,139 @@ Electron sandbox crash.
 `
       });
 
-      const results = failingSearch.search({
+      const response = await failingSearch.search({
         query: "electron sandbox crash",
         project: "code-brain"
       });
 
+      const results = response.results;
       expect(results).toHaveLength(1);
       expect(results[0]?.slug).toBe("issue/electron-sandbox-crash");
+      expect(response.strategy.degraded).toBe(true);
+    } finally {
+      fixture.close();
+    }
+  });
+
+  it("uses query expansion and reranking when the search augmentor succeeds", async () => {
+    const fixture = await createFixture();
+
+    try {
+      fixture.config.llm.enabled = true;
+      const boostedSearch = new SearchService(fixture.config, fixture.index, {
+        augmentor: {
+          expandQuery: async () => ({
+            queries: ["sandbox bridge crash"],
+            preferred_types: ["issue"],
+            scope_refs: []
+          }),
+          rerankResults: async (_input, results) => [...results].reverse()
+        }
+      });
+
+      await fixture.pages.putPage({
+        slug: "issue/electron-sandbox-crash",
+        content: `---
+project: code-brain
+type: issue
+title: Electron Sandbox Crash
+status: fixed
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Symptoms
+
+Electron sandbox crash.
+`
+      });
+
+      await fixture.pages.putPage({
+        slug: "practice/preload-bridge-rule",
+        content: `---
+project: code-brain
+type: practice
+title: Preload Bridge Rule
+status: active
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Rule
+
+Use the preload bridge safely after a sandbox bridge crash.
+`
+      });
+
+      const response = await boostedSearch.search({
+        query: "electron sandbox crash",
+        project: "code-brain"
+      });
+
+      expect(response.results).toHaveLength(2);
+      expect(response.strategy.queryExpansionUsed).toBe(true);
+      expect(response.strategy.reranked).toBe(true);
+    } finally {
+      fixture.close();
+    }
+  });
+
+  it("adds embedding-only recall without breaking local FTS results", async () => {
+    const fixture = await createFixture();
+
+    try {
+      fixture.config.embedding.enabled = true;
+      const embeddingRepository = new EmbeddingIndexRepository(fixture.index);
+      const pagesWithEmbeddings = new PageRepository(fixture.config, fixture.index, {
+        enabled: true,
+        provider: {
+          embedTexts: async (input) => ({
+            model: "mock-embedding",
+            vectors: input.map(() => [1, 0, 0])
+          })
+        },
+        repository: embeddingRepository
+      });
+      const semanticSearch = new SearchService(fixture.config, fixture.index, {
+        embeddingProvider: {
+          embedTexts: async () => ({
+            model: "mock-embedding",
+            vectors: [[1, 0, 0]]
+          })
+        },
+        embeddingRepository
+      });
+
+      await pagesWithEmbeddings.putPage({
+        slug: "practice/preload-bridge-rule",
+        content: `---
+project: code-brain
+type: practice
+title: Preload Bridge Rule
+status: active
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Rule
+
+Expose browser-safe APIs over the preload bridge.
+`
+      });
+
+      const response = await semanticSearch.search({
+        query: "renderer safe bridge rule",
+        project: "code-brain"
+      });
+
+      expect(response.results[0]?.slug).toBe("practice/preload-bridge-rule");
+      expect(response.strategy.embeddingUsed).toBe(true);
     } finally {
       fixture.close();
     }

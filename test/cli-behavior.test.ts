@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
@@ -137,5 +137,18 @@ Sandbox crashed.
     expect(result.failed).toBe(true);
     expect(result.stderr).toContain("Unable to resolve project. Pass --project or --context-path.");
   });
-});
 
+  it("bootstraps a minimal config with the init command", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "code-brain-init-"));
+    tempRoots.push(root);
+    const configPath = path.join(root, "config.yaml");
+
+    const result = await runCli(["--config", configPath, "init"]);
+    const written = await readFile(configPath, "utf8");
+
+    expect(result.failed).toBe(false);
+    expect(result.stdout).toContain("config_path:");
+    expect(written).toContain("brain:");
+    expect(written).toContain("index_db:");
+  });
+});

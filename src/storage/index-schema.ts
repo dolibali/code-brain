@@ -62,6 +62,17 @@ CREATE TABLE IF NOT EXISTS timeline_entries (
   body TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS page_embeddings (
+  project TEXT NOT NULL REFERENCES projects(id),
+  slug TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  embedding_model TEXT NOT NULL,
+  dimensions INTEGER NOT NULL,
+  vector_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (project, slug)
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_page_links_unique
 ON page_links(project, from_slug, to_slug, relation);
 
@@ -77,4 +88,3 @@ CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
   scope_text
 );
 `;
-

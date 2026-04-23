@@ -1,35 +1,37 @@
 # Code Brain
 
 Code Brain is a local-first code knowledge brain for `Claude Code`, `Cursor`, `Codex`, and `Gemini CLI`.
-It keeps Markdown as the source of truth, SQLite as the index, and exposes a thin-service tool surface through both CLI and MCP.
+It keeps Markdown as the source of truth, SQLite as the index, and exposes the same thin-service surface through both CLI and MCP.
 
-## Quickstart
+## Install
 
-1. Install dependencies:
+Global install:
+
+```bash
+npm install -g code-brain
+```
+
+One-shot usage without a global install:
+
+```bash
+npx code-brain@latest --help
+```
+
+For local development in this repo:
 
 ```bash
 ./init.sh
 ```
 
-2. Create a minimal config at `~/.code-brain/config.yaml`:
+## Quickstart
 
-```yaml
-brain:
-  repo: ~/.code-brain/brain
-  index_db: ~/.code-brain/index.sqlite
+1. Initialize local state:
 
-projects:
-  - id: code-brain
-    main_branch: main
-    roots:
-      - ~/work/code-brain
-    git_remotes: []
-
-llm:
-  enabled: false
+```bash
+codebrain init
 ```
 
-3. Register a project if it is not already in config:
+2. Register a project:
 
 ```bash
 codebrain project register \
@@ -39,19 +41,19 @@ codebrain project register \
   --main-branch main
 ```
 
-4. Search before editing:
+3. Search before editing:
 
 ```bash
 codebrain search "electron 沙箱 崩溃 preload" --context-path "$(pwd)"
 ```
 
-5. Read an existing page before rewriting it:
+4. Read an existing page before rewriting it:
 
 ```bash
 codebrain get issue/electron-sandbox-crash --project kilo-code
 ```
 
-6. Put a full markdown page after a task is stable:
+5. Put a full Markdown page after a task is stable:
 
 ```bash
 codebrain put change/2026/2026-04-18-preload-bridge-fix \
@@ -59,7 +61,7 @@ codebrain put change/2026/2026-04-18-preload-bridge-fix \
   --file ./change.md
 ```
 
-7. Link evidence to long-lived knowledge:
+6. Link evidence to long-lived knowledge:
 
 ```bash
 codebrain link \
@@ -69,20 +71,23 @@ codebrain link \
   --relation updates
 ```
 
-## Useful Commands
+## CLI Surface
 
 ```bash
+codebrain init
 codebrain serve
 codebrain project list
+codebrain project register --id kilo-code --root ~/work/kilo-code --main-branch main
 codebrain search "query" --project kilo-code
 codebrain list --project kilo-code --types issue,practice
 codebrain get issue/electron-sandbox-crash --project kilo-code
 codebrain put practice/preload-bridge-rule --project kilo-code --file ./practice.md
+codebrain link --project kilo-code --from change/... --to issue/... --relation updates
 codebrain links --project kilo-code --slug issue/electron-sandbox-crash
 codebrain reindex --project kilo-code
 ```
 
-## Thin Service Surface
+## Thin Service Contract
 
 Code Brain v1 intentionally keeps the service thin. The formal tool surface is:
 
@@ -96,16 +101,58 @@ Code Brain v1 intentionally keeps the service thin. The formal tool surface is:
 
 The service does not do `record_change`, automatic dedupe, automatic long-lived knowledge extraction, or hidden branch-based write rejection.
 
-## Provider Presets
+## MCP Positioning
 
-Code Brain uses an `OpenAI-compatible-first` configuration model.
-These provider ids are supported in config and can be routed for search:
+Code Brain MCP is **a code knowledge toolset over stdio**, not an autonomous memory agent.
 
-- `zhipu`
-- `qwen_bailian`
-- `minimax`
-- `deepseek`
-- `kimi`
+- `search` returns candidate page summaries and related changes, not a final synthesized answer
+- `get_page` returns the full Markdown truth page
+- `put_page` overwrites one full page and does not auto-merge
+- `link_pages` creates formal relationships and does not infer links from body text
+
+Preferred MCP startup command:
+
+```json
+{
+  "code-brain": {
+    "command": "codebrain",
+    "args": ["serve"]
+  }
+}
+```
+
+Do not use `npm run serve` in MCP client config. `stdio` MCP requires clean stdout for protocol traffic.
+
+## Config
+
+Minimal config created by `codebrain init`:
+
+```yaml
+brain:
+  repo: ~/.code-brain/brain
+  index_db: ~/.code-brain/index.sqlite
+
+projects: []
+
+llm:
+  enabled: false
+
+embedding:
+  enabled: false
+
+mcp:
+  name: code-brain
+  version: 0.2.0
+```
+
+### Search-side LLM
+
+Code Brain only uses LLM on the search path:
+
+- query understanding and expansion
+- result reranking
+
+It does not use LLM for write-side judgment or memory extraction.
 
 Example:
 
@@ -152,44 +199,54 @@ llm:
   retries: 2
 ```
 
-## Agent Loops
+### Optional Embedding Search
 
-### Claude Code
+Embedding is optional and always sits behind the same `search` command.
 
-- Prefer MCP: `codebrain serve`
-- Workflow:
-  `search` before non-trivial edits, then on `main_branch` run the explicit `brain_sync_task` recipe:
-  `search -> get_page -> put change -> put long-lived page -> link_pages`
-
-### Cursor
-
-- Prefer MCP against the same `codebrain serve`
-- Fallback to CLI:
-
-```bash
-codebrain search "query" --context-path "$(pwd)"
-codebrain get practice/preload-bridge-rule --project kilo-code
-codebrain put change/2026/2026-04-18-preload-bridge-fix --file ./change.md
+```yaml
+embedding:
+  enabled: true
+  provider: qwen_bailian
+  model: text-embedding-v4
+  providers:
+    qwen_bailian:
+      mode: openai-compatible
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key_env: DASHSCOPE_API_KEY
+      default_model: text-embedding-v4
+      capabilities: [embeddings]
+  routing:
+    search: qwen_bailian
+  dimensions: 1024
+  timeout_ms: 8000
+  retries: 2
 ```
 
-### Codex
+If the embedding provider is unavailable, Code Brain falls back to local FTS5.
 
-- Prefer MCP when available
-- CLI fallback uses the same commands as Cursor and Claude Code.
+## Agent Loop
 
-### Gemini CLI
+The recommended shared recipe is documented in [docs/BRAIN_SYNC_RECIPE.md](/Users/zhangrich/work/code-brain/docs/BRAIN_SYNC_RECIPE.md:1).
 
-- v1 path is CLI-first:
+Short version:
 
-```bash
-codebrain search "query" --context-path "$(pwd)"
-codebrain get practice/preload-bridge-rule --project kilo-code
-codebrain put change/2026/2026-04-18-preload-bridge-fix --file ./change.md
-```
+1. `search` before non-trivial edits
+2. `get_page` before overwriting an existing page
+3. After a stable task, write a `change` page first
+4. Then update long-lived knowledge if needed
+5. Use `link_pages` to connect the evidence graph
+
+Integration notes:
+
+- [Claude Code](/Users/zhangrich/work/code-brain/docs/integrations/claude-code.md:1)
+- [Codex](/Users/zhangrich/work/code-brain/docs/integrations/codex.md:1)
+- [Cursor](/Users/zhangrich/work/code-brain/docs/integrations/cursor.md:1)
+- [Gemini CLI](/Users/zhangrich/work/code-brain/docs/integrations/gemini-cli.md:1)
 
 ## Notes
 
 - Markdown remains the source of truth even if SQLite is rebuilt.
-- `put_page` expects a full markdown page with valid frontmatter.
+- `put_page` expects a full Markdown page with valid frontmatter.
 - Search defaults to the current project unless `--global` is passed.
-- `main_branch` is a recipe-level write suggestion for Agents, not a hidden `put_page` server-side rejection rule.
+- `main_branch` is a recipe-level write suggestion for agents, not a hidden `put_page` server-side rejection rule.
+- The current SQLite backend uses Node's built-in `node:sqlite`, which may print an experimental warning depending on your Node version.

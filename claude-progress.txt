@@ -1,27 +1,37 @@
-Session: 2026-04-19
+Session: 2026-04-24
 
-What was set up
-- Refactored the implementation from a thick service into the thin-service model defined in `docs/DESIGN.md`.
-- Removed `record_change`, ingest dedupe, and service-side knowledge extraction from the runtime, CLI, MCP server, and tests.
-- Reworked config loading around `roots`, `main_branch`, search-only LLM routing, and MCP metadata.
-- Rebuilt page storage around full Markdown `put_page`, full slugs such as `issue/foo` and `change/2026/2026-04-18-bar`, and strict frontmatter validation.
-- Updated search results to keep long-lived pages ahead of `change` pages and to surface `relatedChanges` from explicit links.
-- Renamed the CLI command surface to `codebrain` and aligned README/examples with the thin-service workflow.
-- Replaced the old tests with thin-service coverage for config, page parsing, page repository, search, CLI, and MCP parity.
+What was implemented
+- Upgraded Code Brain from a repo-local dev CLI into a release-ready package shape:
+  `private: false`, publish metadata, `LICENSE`, `exports`, `files`, `prepack`, and a real `codebrain` bin that points at built JS.
+- Added `codebrain init` so a fresh user can bootstrap config, repo directories, and the index without hand-writing YAML first.
+- Added a search-side OpenAI-compatible integration path for real LLM query expansion and reranking.
+- Added optional embedding support with a local SQLite-backed `page_embeddings` index and best-effort embedding refresh on `put_page` and `reindex`.
+- Kept the service boundary thin: no write-side LLM judgment, no automatic memory extraction, and no hidden branch rejection.
+- Tightened MCP semantics:
+  better tool descriptions, structured error payloads, and search strategy metadata to help models understand the tool intent.
+- Added companion docs for agent usage:
+  `docs/BRAIN_SYNC_RECIPE.md` plus integration notes for Claude Code, Codex, Cursor, and Gemini CLI.
 
 Current status
-- 24 features defined
-- 24/24 features passing
 - `npm run typecheck` passes
 - `npm test` passes
+- `npm run build` passes
+- `npm pack` passes
+- Installed tarball smoke test passes for:
+  `codebrain --help`
+  `codebrain init`
+  `codebrain project register`
+  `codebrain project list`
+  `codebrain serve`
+
+Important notes
+- Search is now async internally because LLM expansion/reranking and embedding lookup can be remote operations.
+- LLM is still only used on the search path.
+- Embedding remains optional and defaults to off.
+- The package still uses Node's built-in `node:sqlite`, so experimental warnings may appear depending on the Node version.
 
 What should be worked on next
-- Consider whether to replace Node's experimental `node:sqlite` API with a stable production driver.
-- Add a real search-side LLM adapter if you want query expansion or reranking beyond the current hook-based fallback path.
-- Decide whether to generate a dedicated `docs/BRAIN_SYNC_RECIPE.md` companion doc from the DESIGN spec.
-- Start dogfooding the thin-service workflow against a real project and collect page-quality feedback from Agents.
-
-Notes
-- `main_branch` is now a recipe-level recommendation for Agents, not a hidden server-side write restriction.
-- The service boundary is intentionally narrow: `search / get_page / list_pages / put_page / link_pages / get_links / reindex`.
-- `feature_list.json` still reflects the long-running harness state and currently remains fully passing after the refactor.
+- Consider replacing `node:sqlite` with a stable production driver if install/runtime stability becomes a blocker.
+- Decide whether `codebrain init --config <path>` should keep using home-based defaults or derive repo/index paths relative to the explicit config path.
+- Add real provider integration smoke tests against one OpenAI-compatible vendor if you want higher confidence beyond mocks.
+- Consider adding a dedicated MCP smoke script that exercises `search` and `get_page` through stdio from the built package.

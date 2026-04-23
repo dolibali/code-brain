@@ -2,6 +2,8 @@ import path from "node:path";
 import { mkdir, open, readFile, readdir, rename, rm } from "node:fs/promises";
 import type { DatabaseSync } from "node:sqlite";
 import type { CodeBrainConfig } from "../config/schema.js";
+import { createContentHash, type EmbeddingProvider } from "../embedding/provider.js";
+import { EmbeddingIndexRepository } from "../embedding/repository.js";
 import { singleValidationError, ValidationError } from "../errors/validation-error.js";
 import { resolveProject } from "../projects/resolve-project.js";
 import { buildIndexedSearchText } from "../search/normalize.js";
@@ -47,6 +49,12 @@ export type ListedPage = {
   status: string | null;
   updatedAt: string;
   markdownPath: string;
+};
+
+type EmbeddingSyncOptions = {
+  enabled: boolean;
+  provider?: EmbeddingProvider;
+  repository?: EmbeddingIndexRepository;
 };
 
 function extractCompiledTruthAndTimeline(body: string): {
@@ -289,8 +297,29 @@ function selectProjectForRead(config: CodeBrainConfig, project?: string): string
 export class PageRepository {
   constructor(
     private readonly config: CodeBrainConfig,
-    private readonly index: IndexDatabase
+    private readonly index: IndexDatabase,
+    private readonly embedding?: EmbeddingSyncOptions
   ) {}
+
+  private async syncEmbedding(page: StoredPage): Promise<void> {
+    if (!this.embedding?.enabled || !this.embedding.provider || !this.embedding.repository) {
+      return;
+    }
+
+    try {
+      const text = [page.frontmatter.title, page.compiledTruth, page.timelineText].filter(Boolean).join("\n\n");
+      const response = await this.embedding.provider.embedTexts([text]);
+      this.embedding.repository.upsertPageEmbedding({
+        project: page.frontmatter.project,
+        slug: page.slug,
+        contentHash: createContentHash(page.content),
+        model: response.model,
+        vector: response.vectors[0] ?? []
+      });
+    } catch {
+      // Embedding refresh is best-effort and must not block canonical markdown writes.
+    }
+  }
 
   async putPage(input: PutPageInput): Promise<StoredPage> {
     return storageWriteQueue.runExclusive(async () => {
@@ -318,6 +347,7 @@ export class PageRepository {
 
       const storedPage = await parseStoredPage(markdownPath, normalizedSlug);
       upsertPageIndex(this.index.db, storedPage);
+      await this.syncEmbedding(storedPage);
       return storedPage;
     });
   }
@@ -438,6 +468,7 @@ export class PageRepository {
           this.index.db.prepare("DELETE FROM pages").run();
           this.index.db.prepare("DELETE FROM page_scopes").run();
           this.index.db.prepare("DELETE FROM pages_fts").run();
+          this.embedding?.repository?.deleteEmbeddingsForProjects([]);
           return;
         }
 
@@ -448,6 +479,7 @@ export class PageRepository {
           WHERE page_id NOT IN (SELECT id FROM pages)
         `).run();
         this.index.db.prepare(`DELETE FROM pages_fts WHERE project IN (${placeholders})`).run(...projectIds);
+        this.embedding?.repository?.deleteEmbeddingsForProjects(projectIds);
       });
 
       let pageCount = 0;
@@ -469,6 +501,7 @@ export class PageRepository {
           }
 
           upsertPageIndex(this.index.db, page);
+          await this.syncEmbedding(page);
           pageCount += 1;
         }
       }
@@ -485,4 +518,3 @@ export class PageRepository {
     });
   }
 }
-

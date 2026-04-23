@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { createCli } from "./cli.js";
 import { ValidationError } from "./errors/validation-error.js";
 
