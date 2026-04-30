@@ -36,3 +36,34 @@ What should be worked on next
 - Decide whether to continue the light abstraction pass by moving `search` and `links` SQL helpers into their own modules, or stop here.
 - Revisit whether test co-location is worth doing after a few more modules grow.
 - Continue evaluating whether `node:sqlite` should eventually be replaced for production stability.
+
+Session: 2026-04-30
+
+What was implemented
+- Added single-user remote deployment mode while keeping local stdio MCP unchanged.
+- Added `braincode serve-http` for a single HTTP service that exposes Streamable HTTP MCP at `/mcp` and sync endpoints under `/sync/*`.
+- Added Bearer token enforcement for `/mcp` and `/sync/*`, with non-localhost HTTP serving requiring `server.auth_token_env` to point at a non-empty environment variable.
+- Added manual sync commands:
+  - `braincode sync status`
+  - `braincode sync pull`
+  - `braincode sync push`
+- Added config sections for `server`, `remote`, and `sync`.
+- Added manifest/hash based sync:
+  - `pull` downloads only changed or missing remote pages and prunes local pages missing from remote when configured
+  - `push` uploads local pages whose hash differs from remote and intentionally overwrites the remote page for the same slug
+- Added gzip support for JSON responses and gzip-compressed sync uploads.
+- Added HTTP/sync tests covering token rejection, HTTP MCP tool discovery, remote pull, and local-overwrites-remote push.
+- Updated README and DESIGN.md with remote deployment and manual sync usage.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm run smoke:mcp` passes
+- Existing stdio MCP behavior remains covered by the existing smoke test
+
+Important notes
+- Remote mode is single-user only; no user accounts, permissions, or merge conflict resolution were added.
+- Remote server is the truth source by product convention; local sync cache can be pruned by `sync pull`.
+- `sync push` follows the requested local-overwrites-remote behavior.
+- Transport encryption is expected from HTTPS/TLS outside the app; server-side Markdown and SQLite remain plaintext.

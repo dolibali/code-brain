@@ -81,6 +81,24 @@ export const McpConfigSchema = z.object({
   version: z.string().min(1).default("0.2.0")
 });
 
+export const ServerConfigSchema = z.object({
+  host: z.string().min(1).default("127.0.0.1"),
+  port: z.number().int().positive().max(65535).default(7331),
+  authTokenEnv: z.string().min(1).optional(),
+  maxBodyMb: z.number().int().positive().default(20)
+});
+
+export const RemoteConfigSchema = z.object({
+  url: z.string().url().optional(),
+  tokenEnv: z.string().min(1).optional()
+});
+
+export const SyncConfigSchema = z.object({
+  concurrency: z.number().int().positive().default(8),
+  compression: z.enum(["gzip", "none"]).default("gzip"),
+  pruneOnPull: z.boolean().default(true)
+});
+
 export const BrainCodeConfigSchema = z.object({
   brain: z.object({
     repo: z.string().min(1),
@@ -106,6 +124,17 @@ export const BrainCodeConfigSchema = z.object({
   mcp: McpConfigSchema.default({
     name: "braincode",
     version: "0.2.0"
+  }),
+  server: ServerConfigSchema.default({
+    host: "127.0.0.1",
+    port: 7331,
+    maxBodyMb: 20
+  }),
+  remote: RemoteConfigSchema.default({}),
+  sync: SyncConfigSchema.default({
+    concurrency: 8,
+    compression: "gzip",
+    pruneOnPull: true
   })
 });
 
@@ -118,4 +147,7 @@ export type LlmConfig = z.infer<typeof LlmConfigSchema>;
 export type EmbeddingApiConfig = z.infer<typeof EmbeddingApiConfigSchema>;
 export type EmbeddingConfig = z.infer<typeof EmbeddingConfigSchema>;
 export type McpConfig = z.infer<typeof McpConfigSchema>;
+export type ServerConfig = z.infer<typeof ServerConfigSchema>;
+export type RemoteConfig = z.infer<typeof RemoteConfigSchema>;
+export type SyncConfig = z.infer<typeof SyncConfigSchema>;
 export type BrainCodeConfig = z.infer<typeof BrainCodeConfigSchema>;

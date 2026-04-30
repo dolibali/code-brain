@@ -3,17 +3,24 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { openService, type ServiceContext } from "../runtime/open-service.js";
 import { registerTools } from "./tools/index.js";
 
-export async function createBrainCodeMcpServer(configPath?: string): Promise<{
+export function createBrainCodeMcpServerForService(service: ServiceContext): {
   server: McpServer;
-  service: ServiceContext;
-}> {
-  const service = await openService(configPath);
+} {
   const server = new McpServer({
     name: service.config.mcp.name,
     version: service.config.mcp.version
   });
 
   registerTools(server, service);
+  return { server };
+}
+
+export async function createBrainCodeMcpServer(configPath?: string): Promise<{
+  server: McpServer;
+  service: ServiceContext;
+}> {
+  const service = await openService(configPath);
+  const { server } = createBrainCodeMcpServerForService(service);
   return { server, service };
 }
 

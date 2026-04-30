@@ -9,6 +9,8 @@ import { registerPutCommand } from "./commands/put.js";
 import { registerReindexCommand } from "./commands/reindex.js";
 import { registerSearchCommand } from "./commands/search.js";
 import { registerServeCommand } from "./commands/serve.js";
+import { registerServeHttpCommand } from "./commands/serve-http.js";
+import { registerSyncCommands } from "./commands/sync.js";
 
 export function createCli(): Command {
   const program = new Command();
@@ -22,7 +24,9 @@ export function createCli(): Command {
 
   registerInitCommand(program);
   registerServeCommand(program);
+  registerServeHttpCommand(program);
   registerProjectCommands(program);
+  registerSyncCommands(program);
   registerSearchCommand(program);
   registerPutCommand(program);
   registerLinkCommand(program);

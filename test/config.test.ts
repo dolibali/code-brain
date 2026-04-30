@@ -170,6 +170,44 @@ embedding:
     expect(loaded.config.embedding.model).toBe("text-embedding-v4");
     expect(loaded.config.embedding.dimensions).toBe(1024);
   });
+
+  it("loads remote server and manual sync config", async () => {
+    const root = await createTempRoot();
+    const configPath = path.join(root, "config.yaml");
+    const yaml = `
+brain:
+  repo: ./brain
+  index_db: ./state/index.sqlite
+projects: []
+llm:
+  enabled: false
+server:
+  host: 0.0.0.0
+  port: 7331
+  auth_token_env: BRAINCODE_SERVER_TOKEN
+  max_body_mb: 32
+remote:
+  url: https://brain.example.com
+  token_env: BRAINCODE_REMOTE_TOKEN
+sync:
+  concurrency: 4
+  compression: gzip
+  prune_on_pull: true
+`;
+
+    await writeFile(configPath, yaml, "utf8");
+    const loaded = await loadConfig(configPath);
+
+    expect(loaded.config.server.host).toBe("0.0.0.0");
+    expect(loaded.config.server.port).toBe(7331);
+    expect(loaded.config.server.authTokenEnv).toBe("BRAINCODE_SERVER_TOKEN");
+    expect(loaded.config.server.maxBodyMb).toBe(32);
+    expect(loaded.config.remote.url).toBe("https://brain.example.com");
+    expect(loaded.config.remote.tokenEnv).toBe("BRAINCODE_REMOTE_TOKEN");
+    expect(loaded.config.sync.concurrency).toBe(4);
+    expect(loaded.config.sync.compression).toBe("gzip");
+    expect(loaded.config.sync.pruneOnPull).toBe(true);
+  });
 });
 
 describe("index initialization", () => {

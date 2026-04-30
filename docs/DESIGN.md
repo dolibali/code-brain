@@ -255,8 +255,10 @@ v1 **不默认采用** 以下架构作为起点：
 
 MCP transport 约定：
 
-- v1 默认采用 `stdio` 作为 MCP transport
-- HTTP / SSE 等替代 transport 不作为 v1 默认实现前提
+- 本地模式默认采用 `stdio` 作为 MCP transport
+- 远程模式采用 Streamable HTTP MCP，固定路径为 `/mcp`
+- 远程模式仍然保持薄服务工具面，不增加自动记忆整理工具
+- 远程 HTTP 服务必须使用 Bearer token 鉴权；公网部署必须放在 HTTPS/TLS 环境后
 
 ### 3.7 技术路线与候选实现
 
@@ -1123,6 +1125,7 @@ CLI 与 MCP 共享同一套 operations：
 
 ```bash
 braincode serve
+braincode serve-http --host 127.0.0.1 --port 7331
 braincode search "electron sandbox crash" --project kilo-code
 braincode get issue/electron-sandbox-crash --project kilo-code
 braincode list --project kilo-code --types issue,practice
@@ -1130,6 +1133,9 @@ braincode put change/2026/2026-04-18-preload-bridge --project kilo-code --file .
 braincode put practice/preload-bridge-rule --project kilo-code --file ./practice.md
 braincode link --project kilo-code --from change/2026/2026-04-18-preload-bridge --to issue/electron-sandbox-crash --relation updates
 braincode reindex --project kilo-code
+braincode sync status
+braincode sync pull
+braincode sync push
 braincode project register --id kilo-code --root ~/work/kilo-code --remote github.com/your-org/kilo-code --main-branch main
 braincode project list
 ```
@@ -1140,6 +1146,7 @@ CLI 的正式职责：
 - 脚本化写入
 - 批处理与调试
 - 在某些 Agent 环境下作为 MCP 的补位
+- 远程模式下的手动 pull/push 同步
 
 CLI/MCP 一致性要求：
 
@@ -1255,6 +1262,21 @@ llm:
 mcp:
   name: braincode
   version: 0.2.0
+
+server:
+  host: 127.0.0.1
+  port: 7331
+  auth_token_env: BRAINCODE_SERVER_TOKEN
+  max_body_mb: 20
+
+remote:
+  url: https://brain.example.com
+  token_env: BRAINCODE_REMOTE_TOKEN
+
+sync:
+  concurrency: 8
+  compression: gzip
+  prune_on_pull: true
 ```
 
 配置原则：
@@ -1263,6 +1285,18 @@ mcp:
 - 必须支持 **全局模型**
 - 可以按能力覆盖 `search`
 - 必须允许声明 capability flags，例如 `chat_completions`、`reasoning_control`
+
+### 8.4 远程部署与同步
+
+远程模式用于单用户多设备共享记忆：
+
+- `braincode serve-http` 启动单一 HTTP 服务，同时提供 `/mcp` 和 `/sync/*`
+- 远程服务器上的 brain repo 是唯一真相源
+- 本地副本是只读缓存，但允许通过显式 `sync push` 把本地修改覆盖推送到远程
+- `sync pull` 依据 manifest 的 `content_hash` 只下载变化页面，并可按 `prune_on_pull` 删除远程已不存在的本地页面
+- `sync push` 上传本地 hash 与远程不同的页面；同 slug 冲突时以本地内容覆盖远程，不做自动 merge
+- `/mcp` 与 `/sync/*` 共用 Bearer token 鉴权；token 只从环境变量读取
+- 应用层不加密 Markdown/SQLite，传输加密依赖 HTTPS/TLS 或等价安全通道
 - 必须允许通过 `extra_body` 透传供应商扩展参数
 - 必须支持超时、重试、总开关
 - 示例里的模型名只表示能力位点，不绑定具体厂商型号

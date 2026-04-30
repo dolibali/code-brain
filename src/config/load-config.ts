@@ -88,6 +88,17 @@ export function getDefaultConfig(configFilePath = DEFAULT_CONFIG_PATH): BrainCod
     mcp: {
       name: "braincode",
       version: "0.2.0"
+    },
+    server: {
+      host: "127.0.0.1",
+      port: 7331,
+      maxBodyMb: 20
+    },
+    remote: {},
+    sync: {
+      concurrency: 8,
+      compression: "gzip",
+      pruneOnPull: true
     }
   };
 }
@@ -268,6 +279,18 @@ export async function loadConfig(explicitPath?: string): Promise<LoadedConfig> {
       mcp: {
         ...defaults.mcp,
         ...(normalizedRecord.mcp as Record<string, unknown> | undefined)
+      },
+      server: {
+        ...defaults.server,
+        ...(normalizedRecord.server as Record<string, unknown> | undefined)
+      },
+      remote: {
+        ...defaults.remote,
+        ...(normalizedRecord.remote as Record<string, unknown> | undefined)
+      },
+      sync: {
+        ...defaults.sync,
+        ...(normalizedRecord.sync as Record<string, unknown> | undefined)
       }
     });
 
@@ -377,6 +400,21 @@ export async function writeConfig({ path: explicitPath, config }: ConfigWriteInp
     mcp: {
       name: config.mcp.name,
       version: config.mcp.version
+    },
+    server: {
+      host: config.server.host,
+      port: config.server.port,
+      auth_token_env: config.server.authTokenEnv,
+      max_body_mb: config.server.maxBodyMb
+    },
+    remote: {
+      url: config.remote.url,
+      token_env: config.remote.tokenEnv
+    },
+    sync: {
+      concurrency: config.sync.concurrency,
+      compression: config.sync.compression,
+      prune_on_pull: config.sync.pruneOnPull
     }
   });
 

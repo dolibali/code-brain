@@ -2,6 +2,7 @@
 
 BrainCode is a local-first code knowledge brain for `Claude Code`, `Cursor`, `Codex`, and `Gemini CLI`.
 It keeps Markdown as the source of truth, SQLite as the index, and exposes the same thin-service surface through both CLI and MCP.
+It can also run as a single-user remote server when you want multiple machines to share one remote truth source.
 
 ## Install
 
@@ -84,6 +85,7 @@ braincode link \
 ```bash
 braincode init
 braincode serve
+braincode serve-http --host 127.0.0.1 --port 7331
 braincode project list
 braincode project register --id kilo-code --root ~/work/kilo-code --main-branch main
 braincode search "query" --project kilo-code
@@ -93,6 +95,9 @@ braincode put practice/preload-bridge-rule --project kilo-code --file ./practice
 braincode link --project kilo-code --from change/... --to issue/... --relation updates
 braincode links --project kilo-code --slug issue/electron-sandbox-crash
 braincode reindex --project kilo-code
+braincode sync status
+braincode sync pull
+braincode sync push
 ```
 
 ## Thin Service Contract
@@ -111,14 +116,14 @@ The service does not do `record_change`, automatic dedupe, automatic long-lived 
 
 ## MCP Positioning
 
-BrainCode MCP is **a code knowledge toolset over stdio**, not an autonomous memory agent.
+BrainCode MCP is **a code knowledge toolset**, not an autonomous memory agent.
 
 - `search` returns candidate page summaries and related changes, not a final synthesized answer
 - `get_page` returns the full Markdown truth page
 - `put_page` overwrites one full page and does not auto-merge
 - `link_pages` creates formal relationships and does not infer links from body text
 
-Preferred MCP startup command:
+Preferred local MCP startup command:
 
 ```json
 {
@@ -130,6 +135,15 @@ Preferred MCP startup command:
 ```
 
 Do not use `npm run serve` in MCP client config. `stdio` MCP requires clean stdout for protocol traffic.
+
+Remote MCP is available through Streamable HTTP at `/mcp`:
+
+```bash
+export BRAINCODE_SERVER_TOKEN="change-me"
+braincode serve-http --host 127.0.0.1 --port 7331
+```
+
+For public access, put this HTTP server behind HTTPS/TLS and configure `server.auth_token_env`.
 
 ## Config
 
@@ -152,6 +166,42 @@ mcp:
   name: braincode
   version: 0.2.0
 ```
+
+### Remote Server and Manual Sync
+
+Remote mode is single-user and center-source: the remote brain repo is the truth source, and local machines keep a manually refreshed cache.
+
+```yaml
+server:
+  host: 127.0.0.1
+  port: 7331
+  auth_token_env: BRAINCODE_SERVER_TOKEN
+  max_body_mb: 20
+
+remote:
+  url: https://brain.example.com
+  token_env: BRAINCODE_REMOTE_TOKEN
+
+sync:
+  concurrency: 8
+  compression: gzip
+  prune_on_pull: true
+```
+
+Pull remote truth into the local cache:
+
+```bash
+export BRAINCODE_REMOTE_TOKEN="change-me"
+braincode sync pull
+```
+
+Push local cache changes back to remote:
+
+```bash
+braincode sync push
+```
+
+`sync push` intentionally overwrites remote pages with local content when the same slug differs. Run `sync status` first when you want to inspect drift.
 
 ### Search-side LLM
 
