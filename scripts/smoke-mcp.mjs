@@ -99,7 +99,7 @@ This page exists for the stdio MCP smoke test.
 
     const client = new Client({
       name: "braincode-smoke-client",
-      version: "0.2.0"
+      version: "0.1.0"
     });
     const transport = new StdioClientTransport({
       command: process.execPath,

@@ -119,7 +119,7 @@ describe("HTTP MCP and sync server", () => {
 
       const client = new Client({
         name: "braincode-http-test",
-        version: "0.2.0"
+        version: "0.1.0"
       });
       const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`), {
         requestInit: {

@@ -78,7 +78,7 @@ export const EmbeddingConfigSchema = z.object({
 
 export const McpConfigSchema = z.object({
   name: z.string().min(1).default("braincode"),
-  version: z.string().min(1).default("0.2.0")
+  version: z.string().min(1).default("0.1.0")
 });
 
 export const ServerConfigSchema = z.object({
@@ -123,7 +123,7 @@ export const BrainCodeConfigSchema = z.object({
   }),
   mcp: McpConfigSchema.default({
     name: "braincode",
-    version: "0.2.0"
+    version: "0.1.0"
   }),
   server: ServerConfigSchema.default({
     host: "127.0.0.1",

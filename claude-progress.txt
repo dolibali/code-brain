@@ -25,6 +25,28 @@ Current status
 - `npm test` passes
 - `npm run build` passes
 - `npm run smoke:mcp` passes
+
+Session: 2026-05-01
+
+What was implemented
+- Reset package version metadata from `0.2.1` to `0.1.0`.
+- Updated default MCP config version examples to `0.1.0`.
+- Added README instructions for upgrading an existing global install with `npm install -g braincode@latest`.
+- Added README publish steps:
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
+  - `npm pack --dry-run`
+  - `npm login`
+  - `npm publish --access public`
+- Documented npm version immutability: if `braincode@0.1.0` already exists on npm, publish `0.1.1` or another new version instead.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm run smoke:mcp` passes
+- `npm pack --dry-run` passes and reports `braincode@0.1.0`
 - No command surface or MCP tool names changed during the refactor
 
 Important notes

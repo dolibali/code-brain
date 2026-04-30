@@ -12,11 +12,37 @@ Global install:
 npm install -g braincode
 ```
 
+Upgrade an existing global install:
+
+```bash
+npm install -g braincode@latest
+```
+
 One-shot usage without a global install:
 
 ```bash
 npx braincode@latest --help
 ```
+
+## Publish
+
+Before publishing, verify the package:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+npm pack --dry-run
+```
+
+Publish to npm:
+
+```bash
+npm login
+npm publish --access public
+```
+
+npm package versions are immutable. If `braincode@0.1.0` has already been published, npm will not let you publish another package with the same name and version. In that case, bump to a new version such as `0.1.1`.
 
 For local development in this repo:
 
@@ -172,7 +198,7 @@ embedding:
 
 mcp:
   name: braincode
-  version: 0.2.0
+  version: 0.1.0
 ```
 
 ### Remote Server and Manual Sync

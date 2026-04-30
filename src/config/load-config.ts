@@ -87,7 +87,7 @@ export function getDefaultConfig(configFilePath = DEFAULT_CONFIG_PATH): BrainCod
     },
     mcp: {
       name: "braincode",
-      version: "0.2.0"
+      version: "0.1.0"
     },
     server: {
       host: "127.0.0.1",

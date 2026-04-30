@@ -1,6 +1,6 @@
 {
   "name": "braincode",
-  "version": "0.2.1",
+  "version": "0.1.0",
   "private": false,
   "description": "A local-first code knowledge brain with CLI and MCP interfaces for AI coding agents.",
   "license": "MIT",
