@@ -1125,7 +1125,7 @@ CLI 与 MCP 共享同一套 operations：
 
 ```bash
 braincode serve
-braincode serve --remote -i 127.0.0.1 -p 7331
+braincode serve --remote --ip 127.0.0.1 --port 7331
 braincode search "electron sandbox crash" --project kilo-code
 braincode get issue/electron-sandbox-crash --project kilo-code
 braincode list --project kilo-code --types issue,practice
@@ -1140,7 +1140,9 @@ braincode project register --id kilo-code --root ~/work/kilo-code --remote githu
 braincode project list
 ```
 
-`braincode serve --remote` 在未传 `-i/-p` 时使用配置中的 `server.host/server.port`，默认值为 `127.0.0.1:7331`。
+等价简写为 `braincode serve -r -i 127.0.0.1 -p 7331`。
+
+`braincode serve --remote` 在未传 `--ip/--port` 或 `-i/-p` 时使用配置中的 `server.host/server.port`，默认值为 `127.0.0.1:7331`。
 
 CLI 的正式职责：
 
