@@ -87,8 +87,20 @@ describe("CLI help and errors", () => {
     expect(result.stdout).toContain("search");
     expect(result.stdout).toContain("put");
     expect(result.stdout).toContain("serve");
+    expect(result.stdout).toContain("serve-http");
     expect(result.stdout).toContain("links");
     expect(result.stdout).not.toContain("change");
+  });
+
+  it("documents remote serve flags on the serve command", async () => {
+    const result = await runCli(["serve", "--help"]);
+
+    expect(result.failed).toBe(false);
+    expect(result.stdout).toContain("-r, --remote");
+    expect(result.stdout).toContain("-i, --ip <ip>");
+    expect(result.stdout).toContain("-p, --port <port>");
+    expect(result.stdout).toContain("127.0.0.1");
+    expect(result.stdout).toContain("7331");
   });
 
   it("returns structured validation errors for put_page mismatches", async () => {

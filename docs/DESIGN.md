@@ -1125,7 +1125,7 @@ CLI 与 MCP 共享同一套 operations：
 
 ```bash
 braincode serve
-braincode serve-http --host 127.0.0.1 --port 7331
+braincode serve --remote -i 127.0.0.1 -p 7331
 braincode search "electron sandbox crash" --project kilo-code
 braincode get issue/electron-sandbox-crash --project kilo-code
 braincode list --project kilo-code --types issue,practice
@@ -1139,6 +1139,8 @@ braincode sync push
 braincode project register --id kilo-code --root ~/work/kilo-code --remote github.com/your-org/kilo-code --main-branch main
 braincode project list
 ```
+
+`braincode serve --remote` 在未传 `-i/-p` 时使用配置中的 `server.host/server.port`，默认值为 `127.0.0.1:7331`。
 
 CLI 的正式职责：
 
@@ -1290,7 +1292,7 @@ sync:
 
 远程模式用于单用户多设备共享记忆：
 
-- `braincode serve-http` 启动单一 HTTP 服务，同时提供 `/mcp` 和 `/sync/*`
+- `braincode serve --remote` 启动单一 HTTP 服务，同时提供 `/mcp` 和 `/sync/*`
 - 远程服务器上的 brain repo 是唯一真相源
 - 本地副本是只读缓存，但允许通过显式 `sync push` 把本地修改覆盖推送到远程
 - `sync pull` 依据 manifest 的 `content_hash` 只下载变化页面，并可按 `prune_on_pull` 删除远程已不存在的本地页面

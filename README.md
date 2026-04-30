@@ -85,7 +85,7 @@ braincode link \
 ```bash
 braincode init
 braincode serve
-braincode serve-http --host 127.0.0.1 --port 7331
+braincode serve --remote -i 127.0.0.1 -p 7331
 braincode project list
 braincode project register --id kilo-code --root ~/work/kilo-code --main-branch main
 braincode search "query" --project kilo-code
@@ -140,8 +140,10 @@ Remote MCP is available through Streamable HTTP at `/mcp`:
 
 ```bash
 export BRAINCODE_SERVER_TOKEN="change-me"
-braincode serve-http --host 127.0.0.1 --port 7331
+braincode serve --remote -i 127.0.0.1 -p 7331
 ```
+
+`braincode serve --remote` without `-i/-p` uses `server.host` and `server.port`; the generated defaults are `127.0.0.1:7331`.
 
 For public access, put this HTTP server behind HTTPS/TLS and configure `server.auth_token_env`.
 

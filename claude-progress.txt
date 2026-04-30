@@ -67,3 +67,22 @@ Important notes
 - Remote server is the truth source by product convention; local sync cache can be pruned by `sync pull`.
 - `sync push` follows the requested local-overwrites-remote behavior.
 - Transport encryption is expected from HTTPS/TLS outside the app; server-side Markdown and SQLite remain plaintext.
+
+Session: 2026-04-30
+
+What was implemented
+- Changed the recommended remote server command from `braincode serve-http` to `braincode serve --remote`.
+- Added short flags for remote serving:
+  - `-r, --remote`
+  - `-i, --ip`
+  - `-p, --port`
+- Kept `braincode serve-http` as a compatibility alias for older scripts and docs.
+- Updated README and DESIGN.md to recommend `braincode serve --remote -i 127.0.0.1 -p 7331`.
+- Added CLI help coverage for the new remote serve flags.
+- Clarified that `braincode serve --remote` without `-i/-p` uses `server.host/server.port`, defaulting to `127.0.0.1:7331`.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm run smoke:mcp` passes
