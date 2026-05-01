@@ -48,6 +48,25 @@ Important notes
 Session: 2026-05-01
 
 What was implemented
+- Lowered the published runtime requirement from Node.js `>=24.0.0` to `>=22.20.0`.
+- Changed the development Node type package from `@types/node@24` to the latest available Node 22 type line, `@types/node@22.19.17`.
+- Updated `package-lock.json` so npm metadata matches the new runtime baseline.
+- Updated README install notes to state that BrainCode requires Node.js `>=22.20.0`.
+- Clarified that the current SQLite backend still uses Node's built-in `node:sqlite`, but this baseline avoids needing an extra SQLite flag.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm pack --dry-run` passes and reports `braincode@0.1.0`
+
+Important notes
+- Package version remains `0.1.0`.
+- `npm view node@22.20.0 version` confirms the requested Node runtime version exists.
+
+Session: 2026-05-01
+
+What was implemented
 - Simplified the human-facing CLI command surface to the new BrainCode naming:
   - `project add --name/--path/--url/--branch`
   - `pj add -n/-p/-u/-b`

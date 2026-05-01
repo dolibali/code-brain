@@ -6,6 +6,8 @@ It can also run as a single-user remote server when you want multiple machines t
 
 ## Install
 
+Requires Node.js `>=22.20.0`.
+
 Global install:
 
 ```bash
@@ -369,7 +371,7 @@ Integration notes:
 - Search defaults to the current project unless `--global` is passed.
 - `main_branch` is a recipe-level write suggestion for agents, not a hidden `put_page` server-side rejection rule.
 - Do not write machine-specific absolute paths into page frontmatter, `scope_refs`, or remote sync metadata; use project ids and repo-relative paths instead.
-- The current SQLite backend uses Node's built-in `node:sqlite`, which may print an experimental warning depending on your Node version.
+- The current SQLite backend uses Node's built-in `node:sqlite`; BrainCode requires Node.js `>=22.20.0` so this works without an extra SQLite flag.
 
 ## Smoke Tests
 
