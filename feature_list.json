@@ -15,9 +15,10 @@
     "category": "functional",
     "description": "Project registry can register and list multiple projects in config and index",
     "steps": [
-      "Run `npm run cli -- project register --id kilo-code --root ~/work/kilo-code --remote github.com/example/kilo-code`",
-      "Run `npm run cli -- project register --id braincode --root ~/work/braincode`",
+      "Run `npm run cli -- project add --name kilo-code --path ~/work/kilo-code --url github.com/example/kilo-code`",
+      "Run `npm run cli -- pj add -n braincode -p ~/work/braincode`",
       "Run `npm run cli -- project list`",
+      "Run `npm run cli -- pj ls`",
       "Verify both projects appear with ids, roots, and remotes",
       "Inspect config file and verify both registrations were persisted"
     ],
@@ -37,12 +38,12 @@
   },
   {
     "category": "functional",
-    "description": "CLI exposes a stable command surface for doctor, project register, and project list",
+    "description": "CLI exposes a stable command surface for doctor, project add, and project list",
     "steps": [
       "Run `npm run cli -- --help`",
       "Verify top-level commands include doctor and project",
       "Run `npm run cli -- project --help`",
-      "Verify register and list subcommands are documented",
+      "Verify add/list and pj add/ls subcommands are documented",
       "Run each command with minimal valid arguments and verify non-error completion"
     ],
     "passes": true

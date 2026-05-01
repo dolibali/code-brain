@@ -5,6 +5,7 @@ import { getConfigPath } from "../../helpers.js";
 export function registerProjectListCommand(project: Command): void {
   project
     .command("list")
+    .alias("ls")
     .description("List all registered projects")
     .action(async (_, command: Command) => {
       const loaded = await loadConfig(getConfigPath(command));

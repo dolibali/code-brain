@@ -1128,16 +1128,21 @@ braincode serve
 braincode serve --remote --ip 127.0.0.1 --port 7331
 braincode search "electron sandbox crash" --project kilo-code
 braincode get issue/electron-sandbox-crash --project kilo-code
-braincode list --project kilo-code --types issue,practice
+braincode list --project kilo-code --type issue,practice
 braincode put change/2026/2026-04-18-preload-bridge --project kilo-code --file ./change.md
 braincode put practice/preload-bridge-rule --project kilo-code --file ./practice.md
-braincode link --project kilo-code --from change/2026/2026-04-18-preload-bridge --to issue/electron-sandbox-crash --relation updates
+braincode link --project kilo-code --from change/2026/2026-04-18-preload-bridge --to issue/electron-sandbox-crash --rel updates
 braincode reindex --project kilo-code
 braincode sync status
 braincode sync pull
 braincode sync push
-braincode project register --id kilo-code --root ~/work/kilo-code --remote github.com/your-org/kilo-code --main-branch main
+braincode project add --name kilo-code --path ~/work/kilo-code --url github.com/your-org/kilo-code --branch main
 braincode project list
+braincode pj add -n kilo-code -p ~/work/kilo-code -u github.com/your-org/kilo-code -b main
+braincode pj ls
+braincode s "electron sandbox crash" -p kilo-code
+braincode ls -p kilo-code -t issue,practice
+braincode idx --all
 ```
 
 等价简写为 `braincode serve -r -i 127.0.0.1 -p 7331`。
@@ -1392,10 +1397,10 @@ v1 对 Gemini CLI 的正式支持等级是 **实验性 CLI 支持**。
 v1 的可实施接入模板至少应覆盖：
 
 ```bash
-braincode search "query" --context-path "$(pwd)"
+braincode search "query" --context "$(pwd)"
 braincode get practice/preload-bridge-rule --project kilo-code
-braincode put change/2026/2026-04-18-preload-bridge --context-path "$(pwd)" --file ./change.md
-braincode link --project kilo-code --from change/2026/2026-04-18-preload-bridge --to practice/preload-bridge-rule --relation implements
+braincode put change/2026/2026-04-18-preload-bridge --context "$(pwd)" --file ./change.md
+braincode link --project kilo-code --from change/2026/2026-04-18-preload-bridge --to practice/preload-bridge-rule --rel implements
 ```
 
 验收口径：

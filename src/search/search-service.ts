@@ -77,7 +77,7 @@ export class SearchService implements SearchServicePort {
         });
 
     if (!input.global && !resolvedProject) {
-      throw new Error("Unable to resolve project. Pass --project or --context-path.");
+      throw new Error("Unable to resolve project. Pass --project or --context.");
     }
 
     const strategy = {

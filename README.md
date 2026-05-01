@@ -24,26 +24,6 @@ One-shot usage without a global install:
 npx braincode@latest --help
 ```
 
-## Publish
-
-Before publishing, verify the package:
-
-```bash
-npm run typecheck
-npm test
-npm run build
-npm pack --dry-run
-```
-
-Publish to npm:
-
-```bash
-npm login
-npm publish --access public
-```
-
-npm package versions are immutable. If `braincode@0.1.0` has already been published, npm will not let you publish another package with the same name and version. In that case, bump to a new version such as `0.1.1`.
-
 For local development in this repo:
 
 ```bash
@@ -69,17 +49,23 @@ In that mode, the generated `brain` and `state/index.sqlite` paths are written r
 2. Register a project:
 
 ```bash
-braincode project register \
-  --id kilo-code \
-  --root ~/work/kilo-code \
-  --remote github.com/your-org/kilo-code \
-  --main-branch main
+braincode project add \
+  --name kilo-code \
+  --path ~/work/kilo-code \
+  --url github.com/your-org/kilo-code \
+  --branch main
+```
+
+Equivalent short form:
+
+```bash
+braincode pj add -n kilo-code -p ~/work/kilo-code -u github.com/your-org/kilo-code -b main
 ```
 
 3. Search before editing:
 
 ```bash
-braincode search "electron 沙箱 崩溃 preload" --context-path "$(pwd)"
+braincode search "electron 沙箱 崩溃 preload" --context "$(pwd)"
 ```
 
 4. Read an existing page before rewriting it:
@@ -103,7 +89,7 @@ braincode link \
   --project kilo-code \
   --from change/2026/2026-04-18-preload-bridge-fix \
   --to issue/electron-sandbox-crash \
-  --relation updates
+  --rel updates
 ```
 
 ## CLI Surface
@@ -113,14 +99,19 @@ braincode init
 braincode serve
 braincode serve --remote --ip 127.0.0.1 --port 7331
 braincode project list
-braincode project register --id kilo-code --root ~/work/kilo-code --main-branch main
+braincode pj ls
+braincode project add --name kilo-code --path ~/work/kilo-code --branch main
+braincode pj add -n kilo-code -p ~/work/kilo-code -b main
 braincode search "query" --project kilo-code
-braincode list --project kilo-code --types issue,practice
+braincode s "query" -p kilo-code
+braincode list --project kilo-code --type issue,practice
+braincode ls -p kilo-code -t issue,practice
 braincode get issue/electron-sandbox-crash --project kilo-code
 braincode put practice/preload-bridge-rule --project kilo-code --file ./practice.md
-braincode link --project kilo-code --from change/... --to issue/... --relation updates
-braincode links --project kilo-code --slug issue/electron-sandbox-crash
+braincode link --project kilo-code --from change/... --to issue/... --rel updates
+braincode links issue/electron-sandbox-crash --project kilo-code
 braincode reindex --project kilo-code
+braincode idx --all
 braincode sync status
 braincode sync pull
 braincode sync push

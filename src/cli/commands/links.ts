@@ -4,16 +4,15 @@ import { parseDirection, withService } from "../helpers.js";
 export function registerLinksCommand(program: Command): void {
   program
     .command("links")
-    .alias("get-links")
     .description("Get page links")
-    .requiredOption("--project <project>", "Project id")
-    .requiredOption("--slug <slug>", "Page slug")
-    .option("--direction <direction>", "incoming | outgoing | both", "both")
-    .action(async (commandOptions, command: Command) => {
+    .argument("<slug>", "Page slug")
+    .requiredOption("-p, --project <project>", "Project name")
+    .option("-d, --direction <direction>", "incoming | outgoing | both", "both")
+    .action(async (slug: string, commandOptions, command: Command) => {
       await withService(command, async (service) => {
         const links = service.links.getLinks({
           project: commandOptions.project,
-          slug: commandOptions.slug,
+          slug,
           direction: parseDirection(commandOptions.direction)
         });
 

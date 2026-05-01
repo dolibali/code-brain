@@ -6,7 +6,7 @@ import { resolveProject } from "../projects/resolve-project.js";
 export function findProject(config: BrainCodeConfig, projectId: string): { id: string } {
   const project = config.projects.find((entry) => entry.id === projectId);
   if (!project) {
-    throw new Error(`Unknown project '${projectId}'. Register it first with 'braincode project register'.`);
+    throw new Error(`Unknown project '${projectId}'. Add it first with 'braincode project add'.`);
   }
 
   return project;

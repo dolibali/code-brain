@@ -3,22 +3,22 @@ import { registerProject } from "../../../projects/project-registry.js";
 import { openIndexDatabase } from "../../../storage/index-db.js";
 import { getConfigPath } from "../../helpers.js";
 
-export function registerProjectRegisterCommand(project: Command): void {
+export function registerProjectAddCommand(project: Command): void {
   project
-    .command("register")
+    .command("add")
     .description("Register or update a project entry")
-    .requiredOption("--id <id>", "Project id")
-    .requiredOption("--root <root>", "Project root path")
-    .option("--main-branch <branch>", "Main branch name", "main")
-    .option("--remote <remote...>", "Git remote matcher", [])
+    .requiredOption("-n, --name <name>", "Project name")
+    .requiredOption("-p, --path <path>", "Project root path")
+    .option("-b, --branch <branch>", "Main branch name", "main")
+    .option("-u, --url <url...>", "Git remote URL matcher", [])
     .option("--title <title>", "Human-readable project title")
     .action(async (commandOptions, command: Command) => {
       const loaded = await registerProject({
-        id: commandOptions.id,
-        root: commandOptions.root,
-        remotes: commandOptions.remote,
+        id: commandOptions.name,
+        root: commandOptions.path,
+        remotes: commandOptions.url,
         title: commandOptions.title,
-        mainBranch: commandOptions.mainBranch,
+        mainBranch: commandOptions.branch,
         configPath: getConfigPath(command)
       });
 
@@ -30,7 +30,7 @@ export function registerProjectRegisterCommand(project: Command): void {
         index.close();
       }
 
-      console.log(`registered: ${commandOptions.id}`);
+      console.log(`registered: ${commandOptions.name}`);
       console.log(`config_path: ${loaded.path}`);
     });
 }

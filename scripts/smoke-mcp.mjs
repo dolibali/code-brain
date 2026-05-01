@@ -50,12 +50,12 @@ async function main() {
         "--config",
         configPath,
         "project",
-        "register",
-        "--id",
+        "add",
+        "--name",
         "smoke-project",
-        "--root",
+        "--path",
         path.join(tempRoot, "workspace"),
-        "--main-branch",
+        "--branch",
         "main"
       ],
       {}

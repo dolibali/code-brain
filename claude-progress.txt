@@ -29,6 +29,39 @@ Current status
 Session: 2026-05-01
 
 What was implemented
+- Simplified the human-facing CLI command surface to the new BrainCode naming:
+  - `project add --name/--path/--url/--branch`
+  - `pj add -n/-p/-u/-b`
+  - `project list` and `pj ls`
+  - `search`/`s`, `list`/`ls`, `reindex`/`idx`
+- Removed the old `project register` command and old project flags (`--id`, `--root`, `--remote`, `--main-branch`).
+- Removed the old `serve-http` command; remote HTTP mode now uses `braincode serve --remote` or `braincode serve -r`.
+- Renamed CLI flags to the shorter convention:
+  - `--context-path` -> `--context`
+  - `--types` -> `--type`
+  - `--tags` -> `--tag`
+  - `--scope-ref` -> `--scope`
+  - `--relation` -> `--rel`
+  - `--full` -> `--all`
+- Changed `links` to accept the slug as a positional argument instead of `--slug`.
+- Updated README, DESIGN.md, integration docs, feature tracking, smoke script, and CLI behavior tests.
+- Removed the README `Publish` section per request.
+- Added a `clean` build step so stale `dist` files such as the removed `serve-http` command cannot leak into npm packages.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm run smoke:mcp` passes
+- `npm pack --dry-run` passes and no longer includes `dist/src/cli/commands/serve-http.*`
+
+Important notes
+- This intentionally breaks old CLI compatibility, matching the requested direct replacement.
+- MCP tool names and behavior are unchanged.
+
+Session: 2026-05-01
+
+What was implemented
 - Reset package version metadata from `0.2.1` to `0.1.0`.
 - Updated default MCP config version examples to `0.1.0`.
 - Added README instructions for upgrading an existing global install with `npm install -g braincode@latest`.

@@ -85,9 +85,12 @@ describe("CLI help and errors", () => {
 
     expect(result.failed).toBe(false);
     expect(result.stdout).toContain("search");
+    expect(result.stdout).toContain("s");
     expect(result.stdout).toContain("put");
     expect(result.stdout).toContain("serve");
-    expect(result.stdout).toContain("serve-http");
+    expect(result.stdout).not.toContain("serve-http");
+    expect(result.stdout).toContain("pj");
+    expect(result.stdout).toContain("idx");
     expect(result.stdout).toContain("links");
     expect(result.stdout).not.toContain("change");
   });
@@ -133,7 +136,7 @@ Sandbox crashed.
       "issue/electron-sandbox-crash",
       "--project",
       "braincode",
-      "--file",
+      "-f",
       markdownPath
     ]);
 
@@ -147,7 +150,74 @@ Sandbox crashed.
     const result = await runCli(["--config", configPath, "search", "sandbox"]);
 
     expect(result.failed).toBe(true);
-    expect(result.stderr).toContain("Unable to resolve project. Pass --project or --context-path.");
+    expect(result.stderr).toContain("Unable to resolve project. Pass --project or --context.");
+  });
+
+  it("supports simplified project add flags and pj alias", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "braincode-project-add-"));
+    tempRoots.push(root);
+    const configPath = path.join(root, "config.yaml");
+
+    const result = await runCli([
+      "--config",
+      configPath,
+      "pj",
+      "add",
+      "-n",
+      "kilo-code",
+      "-p",
+      path.join(root, "workspace"),
+      "-u",
+      "github.com/example/kilo-code",
+      "-b",
+      "main"
+    ]);
+    const listResult = await runCli(["--config", configPath, "pj", "ls"]);
+
+    expect(result.failed).toBe(false);
+    expect(result.stdout).toContain("registered: kilo-code");
+    expect(listResult.failed).toBe(false);
+    expect(listResult.stdout).toContain("kilo-code");
+    expect(listResult.stdout).toContain("github.com/example/kilo-code");
+  });
+
+  it("supports common short aliases for search, list, links, and reindex", async () => {
+    const configPath = await createConfigFile(1);
+    const markdownPath = path.join(path.dirname(configPath), "page.md");
+    await writeFile(
+      markdownPath,
+      `---
+project: braincode
+type: practice
+title: CLI Alias Rule
+status: active
+source_type: manual
+source_agent: codex
+created_at: 2026-04-18T10:15:00Z
+updated_at: 2026-04-18T10:20:00Z
+---
+
+## Rule
+
+Alias commands should work.
+`,
+      "utf8"
+    );
+
+    await runCli(["--config", configPath, "put", "practice/cli-alias-rule", "-p", "braincode", "-f", markdownPath]);
+    const searchResult = await runCli(["--config", configPath, "s", "Alias Rule", "-p", "braincode"]);
+    const listResult = await runCli(["--config", configPath, "ls", "-p", "braincode", "-t", "practice"]);
+    const linksResult = await runCli(["--config", configPath, "links", "practice/cli-alias-rule", "-p", "braincode"]);
+    const reindexResult = await runCli(["--config", configPath, "idx", "--all"]);
+
+    expect(searchResult.failed).toBe(false);
+    expect(searchResult.stdout).toContain("practice/cli-alias-rule");
+    expect(listResult.failed).toBe(false);
+    expect(listResult.stdout).toContain("practice/cli-alias-rule");
+    expect(linksResult.failed).toBe(false);
+    expect(linksResult.stdout).toContain("No links found.");
+    expect(reindexResult.failed).toBe(false);
+    expect(reindexResult.stdout).toContain("reindexed_pages:");
   });
 
   it("bootstraps a minimal config with the init command", async () => {

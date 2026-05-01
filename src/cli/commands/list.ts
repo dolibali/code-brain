@@ -5,21 +5,22 @@ import { parseCsv, parseScopeRefs, withService } from "../helpers.js";
 export function registerListCommand(program: Command): void {
   program
     .command("list")
+    .alias("ls")
     .description("List canonical knowledge pages")
-    .option("--project <project>", "Project id")
-    .option("--types <csv>", "Comma-separated page types")
+    .option("-p, --project <project>", "Project name")
+    .option("-t, --type <csv>", "Comma-separated page types")
     .option("--status <status>", "Page status")
-    .option("--tags <csv>", "Comma-separated tags")
-    .option("--scope-ref <kind:value...>", "Structured scope refs", [])
-    .option("--limit <limit>", "Maximum rows to return", "20")
+    .option("--tag <csv>", "Comma-separated tags")
+    .option("-s, --scope <kind:value...>", "Structured scope refs", [])
+    .option("-l, --limit <limit>", "Maximum rows to return", "20")
     .action(async (commandOptions, command: Command) => {
       await withService(command, async (service) => {
         const rows = service.pages.listPages({
           project: commandOptions.project,
-          types: parseCsv(commandOptions.types) as PageType[],
+          types: parseCsv(commandOptions.type) as PageType[],
           status: commandOptions.status,
-          tags: parseCsv(commandOptions.tags),
-          scopeRefs: parseScopeRefs(commandOptions.scopeRef),
+          tags: parseCsv(commandOptions.tag),
+          scopeRefs: parseScopeRefs(commandOptions.scope),
           limit: Number(commandOptions.limit)
         });
 
