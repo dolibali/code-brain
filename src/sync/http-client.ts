@@ -1,7 +1,7 @@
 import { gzip } from "node:zlib";
 import { promisify } from "node:util";
 import type { BrainCodeConfig } from "../config/schema.js";
-import type { SyncManifest, SyncPagePayload } from "./types.js";
+import type { SyncManifest, SyncPagePayload, SyncProjectPayload } from "./types.js";
 
 const gzipAsync = promisify(gzip);
 
@@ -57,6 +57,13 @@ export class SyncHttpClient {
     return this.requestJson<SyncPagePayload>("/sync/page", {
       method: "PUT",
       body: page
+    });
+  }
+
+  async putProject(project: SyncProjectPayload): Promise<SyncProjectPayload> {
+    return this.requestJson<SyncProjectPayload>("/sync/project", {
+      method: "PUT",
+      body: project
     });
   }
 

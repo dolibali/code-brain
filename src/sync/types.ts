@@ -2,6 +2,7 @@ export type SyncManifestProject = {
   id: string;
   title?: string;
   main_branch: string;
+  git_remotes: string[];
 };
 
 export type SyncManifestPage = {
@@ -24,6 +25,13 @@ export type SyncPagePayload = {
   slug: string;
   content: string;
   content_hash: string;
+};
+
+export type SyncProjectPayload = {
+  id: string;
+  title?: string;
+  main_branch: string;
+  git_remotes: string[];
 };
 
 export type SyncDiff = {

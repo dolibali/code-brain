@@ -62,6 +62,33 @@ Important notes
 Session: 2026-05-01
 
 What was implemented
+- Decoupled stable project identity from local machine paths.
+- Treat `project id/name + git_remotes + main_branch` as the cross-machine identity.
+- Treat `roots` as local mounts only; config now allows remote projects with `roots: []`.
+- Added Git remote normalization and duplicate detection so different project names cannot register the same repository URL.
+- Changed repeated `project add` for the same project to merge roots/remotes instead of replacing them.
+- Preserved an existing project `main_branch` when adding a new local path without explicitly passing `--branch`.
+- Added `git_remotes` to sync manifest project metadata.
+- Added `PUT /sync/project` for remote project metadata sync; remote-created projects use `roots: []`.
+- Updated `sync push` to sync project metadata before uploading pages.
+- Updated `sync pull` to import remote project metadata before downloading pages.
+- Documented that shared Markdown, `scope_refs`, and sync metadata should not contain local absolute paths.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm run smoke:mcp` passes
+- `npm pack --dry-run` passes
+- `package.json` version remains `0.1.0`
+
+Important notes
+- Remote sync now rejects same normalized Git remote under different project ids with HTTP 409.
+- MCP tool names and CLI command names are unchanged.
+
+Session: 2026-05-01
+
+What was implemented
 - Reset package version metadata from `0.2.1` to `0.1.0`.
 - Updated default MCP config version examples to `0.1.0`.
 - Added README instructions for upgrading an existing global install with `npm install -g braincode@latest`.

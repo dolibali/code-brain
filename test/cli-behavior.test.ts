@@ -157,6 +157,8 @@ Sandbox crashed.
     const root = await mkdtemp(path.join(os.tmpdir(), "braincode-project-add-"));
     tempRoots.push(root);
     const configPath = path.join(root, "config.yaml");
+    const firstWorkspace = path.join(root, "workspace");
+    const secondWorkspace = path.join(root, "workspace-two");
 
     const result = await runCli([
       "--config",
@@ -166,19 +168,70 @@ Sandbox crashed.
       "-n",
       "kilo-code",
       "-p",
-      path.join(root, "workspace"),
+      firstWorkspace,
       "-u",
       "github.com/example/kilo-code",
       "-b",
-      "main"
+      "develop"
+    ]);
+    const secondResult = await runCli([
+      "--config",
+      configPath,
+      "project",
+      "add",
+      "--name",
+      "kilo-code",
+      "--path",
+      secondWorkspace,
+      "--url",
+      "git@github.com:example/kilo-code.git"
     ]);
     const listResult = await runCli(["--config", configPath, "pj", "ls"]);
 
     expect(result.failed).toBe(false);
+    expect(secondResult.failed).toBe(false);
     expect(result.stdout).toContain("registered: kilo-code");
     expect(listResult.failed).toBe(false);
     expect(listResult.stdout).toContain("kilo-code");
+    expect(listResult.stdout).toContain("develop");
     expect(listResult.stdout).toContain("github.com/example/kilo-code");
+    expect(listResult.stdout).toContain(firstWorkspace);
+    expect(listResult.stdout).toContain(secondWorkspace);
+  });
+
+  it("rejects different project names for the same git remote", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "braincode-project-conflict-"));
+    tempRoots.push(root);
+    const configPath = path.join(root, "config.yaml");
+
+    const firstResult = await runCli([
+      "--config",
+      configPath,
+      "pj",
+      "add",
+      "-n",
+      "kilo-code",
+      "-p",
+      path.join(root, "workspace"),
+      "-u",
+      "https://github.com/example/kilo-code.git"
+    ]);
+    const conflictResult = await runCli([
+      "--config",
+      configPath,
+      "pj",
+      "add",
+      "-n",
+      "kilo-code-copy",
+      "-p",
+      path.join(root, "workspace-copy"),
+      "-u",
+      "git@github.com:example/kilo-code.git"
+    ]);
+
+    expect(firstResult.failed).toBe(false);
+    expect(conflictResult.failed).toBe(true);
+    expect(conflictResult.stderr).toContain("already registered to project 'kilo-code'");
   });
 
   it("supports common short aliases for search, list, links, and reindex", async () => {

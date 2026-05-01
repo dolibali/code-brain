@@ -19,6 +19,8 @@
 - Do not rely on `put_page` to merge partial content.
 - Do not rely on `link_pages` to infer relations from the page body.
 - Treat `main_branch` as the default branch where shared memory should usually be written.
+- Treat `project` as the stable identity across machines.
+- Use repo-relative paths in `scope_refs`; never write local absolute paths into shared pages.
 
 ## Slug Guidance
 

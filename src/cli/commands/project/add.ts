@@ -9,7 +9,7 @@ export function registerProjectAddCommand(project: Command): void {
     .description("Register or update a project entry")
     .requiredOption("-n, --name <name>", "Project name")
     .requiredOption("-p, --path <path>", "Project root path")
-    .option("-b, --branch <branch>", "Main branch name", "main")
+    .option("-b, --branch <branch>", "Main branch name")
     .option("-u, --url <url...>", "Git remote URL matcher", [])
     .option("--title <title>", "Human-readable project title")
     .action(async (commandOptions, command: Command) => {

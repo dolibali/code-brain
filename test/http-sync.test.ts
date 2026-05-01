@@ -9,6 +9,7 @@ import { createBrainCodeHttpServer } from "../src/http/server.js";
 import { openService, type ServiceContext } from "../src/runtime/open-service.js";
 import { SyncHttpClient } from "../src/sync/http-client.js";
 import { pullFromRemote, pushToRemote } from "../src/sync/local-sync.js";
+import { loadConfig } from "../src/config/load-config.js";
 
 const tempRoots: string[] = [];
 
@@ -20,21 +21,42 @@ afterEach(async () => {
   );
 });
 
-async function createConfig(root: string, remoteUrl?: string): Promise<string> {
+async function createConfig(
+  root: string,
+  remoteUrl?: string,
+  options: {
+    projectId?: string | null;
+    projectRoot?: string | null;
+    gitRemote?: string;
+  } = {}
+): Promise<string> {
   await mkdir(root, { recursive: true });
   const configPath = path.join(root, "config.yaml");
+  const projectId = options.projectId === undefined ? "braincode" : options.projectId;
+  const roots =
+    options.projectRoot === null
+      ? "[]"
+      : `
+      - ${options.projectRoot ?? "./workspace/braincode"}`;
+  const gitRemotes = options.gitRemote
+    ? `
+      - ${options.gitRemote}`
+    : "[]";
   await writeFile(
     configPath,
     `
 brain:
   repo: ./brain
   index_db: ./state/index.sqlite
-projects:
-  - id: braincode
+projects: ${
+      projectId === null
+        ? "[]"
+        : `
+  - id: ${projectId}
     main_branch: main
-    roots:
-      - ./workspace/braincode
-    git_remotes: []
+    roots: ${roots}
+    git_remotes: ${gitRemotes}`
+    }
 llm:
   enabled: false
 server:
@@ -157,12 +179,18 @@ describe("HTTP MCP and sync server", () => {
     tempRoots.push(root);
     const remoteRoot = path.join(root, "remote");
     const localRoot = path.join(root, "local");
-    const remoteConfigPath = await createConfig(remoteRoot);
+    const remoteConfigPath = await createConfig(remoteRoot, undefined, {
+      projectRoot: null,
+      gitRemote: "git@github.com:example/braincode.git"
+    });
     process.env.BRAINCODE_TEST_TOKEN = "secret-token";
     const remoteService = await openService(remoteConfigPath);
     const server = createBrainCodeHttpServer({ service: remoteService, authToken: "secret-token" });
     const baseUrl = await listen(server);
-    const localConfigPath = await createConfig(localRoot, baseUrl);
+    const localConfigPath = await createConfig(localRoot, baseUrl, {
+      projectRoot: "/different/local/path/braincode",
+      gitRemote: "https://github.com/example/braincode.git"
+    });
     const localService = await openService(localConfigPath);
     const client = new SyncHttpClient({
       url: baseUrl,
@@ -192,6 +220,90 @@ describe("HTTP MCP and sync server", () => {
       expect(pushResult.uploaded).toBe(1);
       const remotePage = await remoteService.pages.getPage("braincode", "practice/remote-rule");
       expect(remotePage?.content).toContain("local overwrite");
+      const reloadedRemote = await loadConfig(remoteConfigPath);
+      expect(reloadedRemote.config.projects[0]?.roots).toEqual([]);
+    } finally {
+      await closeServer(server);
+      localService.close();
+      remoteService.close();
+      delete process.env.BRAINCODE_TEST_TOKEN;
+    }
+  });
+
+  it("creates remote project metadata before push and rejects duplicate git remotes", async () => {
+    const creationRoot = await mkdtemp(path.join(os.tmpdir(), "braincode-http-project-create-"));
+    tempRoots.push(creationRoot);
+    const emptyRemoteRoot = path.join(creationRoot, "remote");
+    const sourceLocalRoot = path.join(creationRoot, "local");
+    const emptyRemoteConfigPath = await createConfig(emptyRemoteRoot, undefined, {
+      projectId: null
+    });
+    process.env.BRAINCODE_TEST_TOKEN = "secret-token";
+    const emptyRemoteService = await openService(emptyRemoteConfigPath);
+    const creationServer = createBrainCodeHttpServer({ service: emptyRemoteService, authToken: "secret-token" });
+    const creationBaseUrl = await listen(creationServer);
+    const sourceLocalConfigPath = await createConfig(sourceLocalRoot, creationBaseUrl, {
+      projectRoot: "/mac/path/braincode",
+      gitRemote: "git@github.com:example/braincode.git"
+    });
+    const sourceLocalService = await openService(sourceLocalConfigPath);
+    const creationClient = new SyncHttpClient({
+      url: creationBaseUrl,
+      token: "secret-token",
+      compression: "gzip"
+    });
+
+    try {
+      await sourceLocalService.pages.putPage({
+        project: "braincode",
+        slug: "practice/created-remotely",
+        content: testPage("Created Remotely", "remote project was created before page upload")
+      });
+
+      const creationPushResult = await pushToRemote(sourceLocalService, creationClient);
+      expect(creationPushResult.uploaded).toBe(1);
+      const remotePage = await emptyRemoteService.pages.getPage("braincode", "practice/created-remotely");
+      expect(remotePage?.content).toContain("remote project was created");
+      const reloaded = await loadConfig(emptyRemoteConfigPath);
+      expect(reloaded.config.projects[0]?.id).toBe("braincode");
+      expect(reloaded.config.projects[0]?.roots).toEqual([]);
+    } finally {
+      await closeServer(creationServer);
+      sourceLocalService.close();
+      emptyRemoteService.close();
+      delete process.env.BRAINCODE_TEST_TOKEN;
+    }
+
+    const root = await mkdtemp(path.join(os.tmpdir(), "braincode-http-project-sync-"));
+    tempRoots.push(root);
+    const remoteRoot = path.join(root, "remote");
+    const localRoot = path.join(root, "local");
+    const remoteConfigPath = await createConfig(remoteRoot, undefined, {
+      projectRoot: null,
+      gitRemote: "git@github.com:example/braincode.git"
+    });
+    process.env.BRAINCODE_TEST_TOKEN = "secret-token";
+    const remoteService = await openService(remoteConfigPath);
+    const server = createBrainCodeHttpServer({ service: remoteService, authToken: "secret-token" });
+    const baseUrl = await listen(server);
+    const localConfigPath = await createConfig(localRoot, baseUrl, {
+      projectId: "braincode-copy",
+      projectRoot: "/another/local/path/braincode",
+      gitRemote: "https://github.com/example/braincode.git"
+    });
+    const localService = await openService(localConfigPath);
+    const client = new SyncHttpClient({
+      url: baseUrl,
+      token: "secret-token",
+      compression: "gzip"
+    });
+
+    try {
+      await expect(pushToRemote(localService, client)).rejects.toThrow(
+        "already registered to project 'braincode'"
+      );
+      const remoteManifest = await client.getManifest();
+      expect(remoteManifest.projects.map((project) => project.id)).toEqual(["braincode"]);
     } finally {
       await closeServer(server);
       localService.close();

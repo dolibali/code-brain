@@ -14,4 +14,5 @@ braincode link --project kilo-code --from change/... --to issue/... --rel update
 Recommended rule:
 
 - Use `search` and `get` for discovery.
+- Prefer the stable `project` id across machines, and keep local absolute paths out of shared memory.
 - Only write shared memory after the task result is stable and ready for reuse.

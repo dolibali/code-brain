@@ -67,6 +67,34 @@ describe("config loading", () => {
     expect(reloaded.config.projects[0]?.mainBranch).toBe("main");
   });
 
+  it("allows remote project metadata without local roots", async () => {
+    const root = await createTempRoot();
+    const configPath = path.join(root, "config.yaml");
+    await writeFile(
+      configPath,
+      `
+brain:
+  repo: ./brain
+  index_db: ./state/index.sqlite
+projects:
+  - id: braincode
+    main_branch: main
+    roots: []
+    git_remotes:
+      - git@github.com:example/braincode.git
+llm:
+  enabled: false
+`,
+      "utf8"
+    );
+
+    const loaded = await loadConfig(configPath);
+
+    expect(loaded.config.projects[0]?.id).toBe("braincode");
+    expect(loaded.config.projects[0]?.roots).toEqual([]);
+    expect(loaded.config.projects[0]?.gitRemotes).toEqual(["git@github.com:example/braincode.git"]);
+  });
+
   it("loads provider presets for Chinese vendors with search-only routing", async () => {
     const root = await createTempRoot();
     const configPath = path.join(root, "config.yaml");

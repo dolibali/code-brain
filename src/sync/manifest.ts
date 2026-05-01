@@ -38,7 +38,8 @@ export async function buildSyncManifest(config: BrainCodeConfig): Promise<SyncMa
     projects: config.projects.map((project) => ({
       id: project.id,
       title: project.title,
-      main_branch: project.mainBranch
+      main_branch: project.mainBranch,
+      git_remotes: project.gitRemotes
     })),
     pages
   };

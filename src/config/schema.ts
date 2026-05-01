@@ -14,7 +14,7 @@ export const ProjectRegistrationSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).optional(),
   mainBranch: z.string().min(1).default("main"),
-  roots: z.array(z.string().min(1)).min(1),
+  roots: z.array(z.string().min(1)).default([]),
   gitRemotes: z.array(z.string().min(1)).default([])
 });
 

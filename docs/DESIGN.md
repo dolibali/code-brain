@@ -227,6 +227,9 @@ BrainCode 默认按以下优先级识别当前项目：
 
 - **Agent 明确告诉 BrainCode 当前项目，优先于 BrainCode 自行猜测**
 - 自动项目识别是兜底能力，不是主交互模式
+- `project id/name + git_remotes + main_branch` 是跨机器稳定项目身份
+- `roots` 只是本机挂载点，用于 cwd/context 解析；远程服务端可以保存 `roots: []`
+- Markdown frontmatter、`scope_refs`、sync manifest 不应保存机器绝对路径
 - 已注册项目应记录 `main_branch`，供 Agent recipe 和外部同步流程参考
 - 非 `main_branch` 的开发分支默认只搜索和读页，这是一条 workflow 建议，不是服务端写入校验
 
@@ -1180,6 +1183,8 @@ projects:
     main_branch: main
     roots:
       - ~/work/kilo-code
+    git_remotes:
+      - github.com/your-org/kilo-code
 
 llm:
   enabled: true
@@ -1302,6 +1307,10 @@ sync:
 - `braincode serve --remote` 启动单一 HTTP 服务，同时提供 `/mcp` 和 `/sync/*`
 - 远程服务器上的 brain repo 是唯一真相源
 - 本地副本是只读缓存，但允许通过显式 `sync push` 把本地修改覆盖推送到远程
+- 项目身份由 `id/main_branch/git_remotes` 表达；远程端不依赖本地绝对路径，远程 project 可以是 `roots: []`
+- `GET /sync/manifest` 的 `projects[]` 返回 `id/title/main_branch/git_remotes`
+- `sync push` 在上传页面前先调用 `PUT /sync/project` 同步项目元数据；远程收到未知 project 时创建 project，`roots` 固定为空
+- 如果远程发现相同 normalized Git remote 已属于另一个 project，则返回 409，避免同仓库不同名称导致重复记忆
 - `sync pull` 依据 manifest 的 `content_hash` 只下载变化页面，并可按 `prune_on_pull` 删除远程已不存在的本地页面
 - `sync push` 上传本地 hash 与远程不同的页面；同 slug 冲突时以本地内容覆盖远程，不做自动 merge
 - `/mcp` 与 `/sync/*` 共用 Bearer token 鉴权；token 只从环境变量读取
@@ -1324,7 +1333,7 @@ sync:
 2. 默认 recipe 建议只把项目 `main_branch` 上的事实写入共享脑库；非主分支开发时默认只搜索和读页
 3. 在主分支完成有意义的 bugfix/refactor/feature/recovery 后，显式执行 `brain_sync_task`
 4. `brain_sync_task` 的默认顺序是：`确认分支 -> search -> get_page -> put change -> put long-lived page -> link_pages`
-5. 调用时优先传 `project` 或 `context_path`
+5. 调用时优先传稳定 `project`；`context_path` 只是本机路径辅助
 6. 若要更新现有页面，先 `get_page` 再覆盖写入，不依赖服务端自动 merge
 
 ### 9.2 Claude Code

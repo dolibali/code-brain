@@ -8,6 +8,7 @@ import {
   type BrainCodeConfig,
   type ProjectRegistration
 } from "./schema.js";
+import { upsertProjectIdentity } from "./project-identity.js";
 
 export const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".braincode", "config.yaml");
 
@@ -170,7 +171,7 @@ function normalizeProjectRegistration(project: RawProjectRegistration): ProjectR
     id: z.string().min(1).parse(project.id),
     title: typeof project.title === "string" ? project.title : undefined,
     mainBranch: typeof project.mainBranch === "string" ? project.mainBranch : "main",
-    roots: z.array(z.string().min(1)).min(1).parse(roots),
+    roots: z.array(z.string().min(1)).parse(roots),
     gitRemotes: z.array(z.string().min(1)).parse(gitRemotes)
   };
 }
@@ -423,18 +424,5 @@ export async function writeConfig({ path: explicitPath, config }: ConfigWriteInp
 }
 
 export function upsertProject(config: BrainCodeConfig, project: ProjectRegistration): BrainCodeConfig {
-  const existing = config.projects.findIndex((entry) => entry.id === project.id);
-  if (existing === -1) {
-    return {
-      ...config,
-      projects: [...config.projects, project]
-    };
-  }
-
-  const nextProjects = [...config.projects];
-  nextProjects[existing] = project;
-  return {
-    ...config,
-    projects: nextProjects
-  };
+  return upsertProjectIdentity(config, project);
 }

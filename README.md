@@ -62,6 +62,8 @@ Equivalent short form:
 braincode pj add -n kilo-code -p ~/work/kilo-code -u github.com/your-org/kilo-code -b main
 ```
 
+`--name` is the stable project identity used by Markdown, SQLite, and remote sync. `--path` is only this machine's local mount for resolving `--context` or the current working directory, so different computers can register the same `--name/--url` with different paths without duplicating remote memory.
+
 3. Search before editing:
 
 ```bash
@@ -228,6 +230,8 @@ braincode sync push
 
 `sync push` intentionally overwrites remote pages with local content when the same slug differs. Run `sync status` first when you want to inspect drift.
 
+Remote sync identifies projects by `project id + git_remotes + main_branch`, never by absolute local paths. The remote server may store projects with `roots: []`; local machines keep their own `roots` only for cwd/context resolution. If two different project names use the same normalized Git remote, sync rejects the duplicate instead of creating a second memory space.
+
 ### Search-side LLM
 
 BrainCode only uses LLM on the search path:
@@ -332,6 +336,7 @@ Integration notes:
 - `put_page` expects a full Markdown page with valid frontmatter.
 - Search defaults to the current project unless `--global` is passed.
 - `main_branch` is a recipe-level write suggestion for agents, not a hidden `put_page` server-side rejection rule.
+- Do not write machine-specific absolute paths into page frontmatter, `scope_refs`, or remote sync metadata; use project ids and repo-relative paths instead.
 - The current SQLite backend uses Node's built-in `node:sqlite`, which may print an experimental warning depending on your Node version.
 
 ## Smoke Tests

@@ -6,7 +6,7 @@ import { createContentHash } from "../embedding/provider.js";
 import { createBrainCodeMcpServerForService } from "../mcp/server.js";
 import { openService, type ServiceContext } from "../runtime/open-service.js";
 import { buildSyncManifest, readSyncPage } from "../sync/manifest.js";
-import { SyncPagePayloadSchema, SyncReindexRequestSchema } from "../sync/schema.js";
+import { SyncPagePayloadSchema, SyncProjectPayloadSchema, SyncReindexRequestSchema } from "../sync/schema.js";
 
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
@@ -165,6 +165,26 @@ async function handleSyncRequest(
       slug: stored.slug,
       content: stored.content,
       content_hash: createContentHash(stored.content)
+    });
+    return;
+  }
+
+  if (request.method === "PUT" && url.pathname === "/sync/project") {
+    const raw = await readJsonBody(request, service.config.server.maxBodyMb * 1024 * 1024);
+    const payload = SyncProjectPayloadSchema.parse(raw);
+    await service.upsertProjectMetadata({
+      id: payload.id,
+      title: payload.title,
+      mainBranch: payload.main_branch,
+      roots: [],
+      gitRemotes: payload.git_remotes
+    });
+    const project = service.config.projects.find((entry) => entry.id === payload.id);
+    await sendJson(request, response, 200, {
+      id: payload.id,
+      title: project?.title,
+      main_branch: project?.mainBranch ?? payload.main_branch,
+      git_remotes: project?.gitRemotes ?? payload.git_remotes
     });
     return;
   }

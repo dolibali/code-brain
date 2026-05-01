@@ -23,10 +23,11 @@ export async function loadProjectRegistry(configPath?: string): Promise<LoadedCo
 
 export async function registerProject(input: RegisterProjectInput): Promise<LoadedConfig> {
   const loaded = await loadConfig(input.configPath);
+  const existing = loaded.config.projects.find((project) => project.id === input.id);
   const nextProject: ProjectRegistration = {
     id: input.id,
     title: input.title,
-    mainBranch: input.mainBranch ?? "main",
+    mainBranch: input.mainBranch ?? existing?.mainBranch ?? "main",
     roots: [input.root],
     gitRemotes: input.remotes
   };
@@ -41,4 +42,3 @@ export async function registerProject(input: RegisterProjectInput): Promise<Load
   await ensureBrainDirectories(nextLoaded.config);
   return nextLoaded;
 }
-

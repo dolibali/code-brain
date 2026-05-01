@@ -5,7 +5,7 @@ import { resolveProjectPagesRoot } from "../pages/page-project.js";
 import { slugToMarkdownPath } from "../pages/page-ref.js";
 import { buildSyncManifest, diffManifests, manifestPageKey, readSyncPage } from "./manifest.js";
 import { SyncHttpClient } from "./http-client.js";
-import type { SyncManifestPage, SyncPullResult, SyncPushResult } from "./types.js";
+import type { SyncManifestProject, SyncManifestPage, SyncPullResult, SyncPushResult } from "./types.js";
 
 async function runWithConcurrency<T>(
   items: readonly T[],
@@ -23,12 +23,28 @@ async function runWithConcurrency<T>(
   await Promise.all(workers);
 }
 
+async function upsertManifestProjects(
+  service: ServiceContext,
+  projects: readonly SyncManifestProject[]
+): Promise<void> {
+  for (const project of projects) {
+    await service.upsertProjectMetadata({
+      id: project.id,
+      title: project.title,
+      mainBranch: project.main_branch,
+      roots: [],
+      gitRemotes: project.git_remotes
+    });
+  }
+}
+
 export async function pullFromRemote(
   service: ServiceContext,
   client: SyncHttpClient
 ): Promise<SyncPullResult> {
   const localManifest = await buildSyncManifest(service.config);
   const remoteManifest = await client.getManifest();
+  await upsertManifestProjects(service, remoteManifest.projects);
   const diff = diffManifests(localManifest, remoteManifest);
   const pagesToDownload = [...diff.changed, ...diff.remoteOnly];
   const changedProjects = new Set<string>();
@@ -80,6 +96,10 @@ export async function pushToRemote(
   client: SyncHttpClient
 ): Promise<SyncPushResult> {
   const localManifest = await buildSyncManifest(service.config);
+  for (const project of localManifest.projects) {
+    await client.putProject(project);
+  }
+
   const remoteManifest = await client.getManifest();
   const remoteByKey = new Map(remoteManifest.pages.map((page) => [manifestPageKey(page), page]));
   const pagesToUpload = localManifest.pages.filter((page) => {

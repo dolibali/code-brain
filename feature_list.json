@@ -26,6 +26,18 @@
   },
   {
     "category": "functional",
+    "description": "Project identity is stable across machines and does not depend on local paths",
+    "steps": [
+      "Register the same project name with multiple local paths",
+      "Verify roots are merged instead of replacing previous mounts",
+      "Register another project name with the same Git remote",
+      "Verify the duplicate remote is rejected",
+      "Push to an empty remote and verify project metadata is created with roots: []"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
     "description": "SQLite index database initializes with required tables and WAL mode",
     "steps": [
       "Run `npm run cli -- doctor` with a writable config directory",

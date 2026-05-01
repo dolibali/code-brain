@@ -1,5 +1,5 @@
-import type { BrainCodeConfig } from "../config/schema.js";
-import { loadConfig } from "../config/load-config.js";
+import type { BrainCodeConfig, ProjectRegistration } from "../config/schema.js";
+import { loadConfig, upsertProject, writeConfig } from "../config/load-config.js";
 import { OpenAiCompatibleEmbeddingProvider } from "../embedding/provider.js";
 import { EmbeddingIndexRepository } from "../embedding/repository.js";
 import { LinkRepository, type LinkService } from "../links/index.js";
@@ -17,6 +17,7 @@ export type ServiceContext = {
   pages: PageService;
   links: LinkService;
   search: SearchServicePort;
+  upsertProjectMetadata: (project: ProjectRegistration) => Promise<void>;
   close: () => void;
 };
 
@@ -64,12 +65,25 @@ export async function openService(configPath?: string): Promise<ServiceContext> 
     embeddingRepository
   });
 
+  const upsertProjectMetadata = async (project: ProjectRegistration): Promise<void> => {
+    const nextConfig = upsertProject(loaded.config, project);
+    const savedPath = await writeConfig({
+      path: loaded.path,
+      config: nextConfig
+    });
+    const nextLoaded = await loadConfig(savedPath);
+    Object.assign(loaded.config, nextLoaded.config);
+    await ensureBrainDirectories(loaded.config);
+    index.syncProjects();
+  };
+
   return {
     configPath: loaded.path,
     config: loaded.config,
     pages,
     links,
     search,
+    upsertProjectMetadata,
     close: () => index.close()
   };
 }
