@@ -89,6 +89,30 @@ Important notes
 Session: 2026-05-01
 
 What was implemented
+- Changed interactive `braincode setup` so API keys are entered as actual secrets instead of asking users to reason about env var names.
+- API key prompts use hidden TTY input and write values to the protected sibling env file managed by BrainCode.
+- Provider presets still provide default base URLs, but setup always lets users confirm or edit the base URL.
+- After a provider API key is entered, setup calls the OpenAI-compatible `/models` endpoint and offers returned model ids through an arrow-key selector.
+- If `/models` is unavailable or returns no models, setup falls back to manual model input.
+- Existing misconfigured `api_key_env` values that do not look like valid env var names are ignored in favor of provider defaults, reducing damage from accidentally entering a real API key in the old prompt.
+- Added model listing tests for unique sorted OpenAI-compatible model ids and authorization headers.
+- Updated README and DESIGN.md to document hidden secret input, protected env file management, and arrow-key model selection.
+
+Current status
+- `./init.sh` passes
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm pack --dry-run` passes and reports `braincode@0.1.0`
+- `npm run smoke:mcp` passes
+
+Important notes
+- Package version remains `0.1.0`.
+- Non-interactive setup still does not accept raw API keys by design, so secrets do not land in shell history.
+
+Session: 2026-05-01
+
+What was implemented
 - Simplified the human-facing CLI command surface to the new BrainCode naming:
   - `project add --name/--path/--url/--branch`
   - `pj add -n/-p/-u/-b`

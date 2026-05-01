@@ -50,7 +50,7 @@ braincode setup --non-interactive \
   --branch main
 ```
 
-`setup` guides local paths, project identity, optional LLM/embedding providers, remote sync, and MCP snippets. It stores provider base URLs, model names, and environment variable names in YAML. When you enter API keys or remote tokens interactively, setup writes them to a sibling env file such as `~/.braincode/env` with `0600` permissions; secrets are never written to `config.yaml`.
+`setup` guides local paths, project identity, optional LLM/embedding providers, remote sync, and MCP snippets. It stores provider base URLs, model names, and environment variable names in YAML. In interactive mode, API keys and remote tokens are hidden while typing and written to a sibling env file such as `~/.braincode/env` with `0600` permissions; secrets are never written to `config.yaml`. After you enter a provider API key, setup tries to fetch `/models` from the OpenAI-compatible base URL and lets you choose a model with the arrow keys, falling back to manual input if the provider does not support model listing.
 
 Minimal script-friendly initialization is still available:
 

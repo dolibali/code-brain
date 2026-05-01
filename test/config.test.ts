@@ -241,6 +241,7 @@ sync:
   it("loads secrets from the sibling env file without storing them in yaml", async () => {
     const root = await createTempRoot();
     const configPath = path.join(root, "config.yaml");
+    const previousApiKey = process.env.ZHIPU_API_KEY;
     await writeFile(
       configPath,
       `
@@ -265,19 +266,27 @@ llm:
     );
     delete process.env.ZHIPU_API_KEY;
 
-    const result = await writeEnvValues(configPath, {
-      ZHIPU_API_KEY: "secret-key"
-    });
-    const envPath = getEnvFilePath(configPath);
-    const envStat = await stat(envPath);
-    const loaded = await loadConfig(configPath);
-    const rawConfig = await readFile(configPath, "utf8");
+    try {
+      const result = await writeEnvValues(configPath, {
+        ZHIPU_API_KEY: "secret-key"
+      });
+      const envPath = getEnvFilePath(configPath);
+      const envStat = await stat(envPath);
+      const loaded = await loadConfig(configPath);
+      const rawConfig = await readFile(configPath, "utf8");
 
-    expect(result?.path).toBe(envPath);
-    expect(envStat.mode & 0o777).toBe(0o600);
-    expect(process.env.ZHIPU_API_KEY).toBe("secret-key");
-    expect(loaded.config.llm.providers.zhipu?.baseUrl).toBe("https://gateway.example.com/v1");
-    expect(rawConfig).not.toContain("secret-key");
+      expect(result?.path).toBe(envPath);
+      expect(envStat.mode & 0o777).toBe(0o600);
+      expect(process.env.ZHIPU_API_KEY).toBe("secret-key");
+      expect(loaded.config.llm.providers.zhipu?.baseUrl).toBe("https://gateway.example.com/v1");
+      expect(rawConfig).not.toContain("secret-key");
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.ZHIPU_API_KEY;
+      } else {
+        process.env.ZHIPU_API_KEY = previousApiKey;
+      }
+    }
   });
 });
 

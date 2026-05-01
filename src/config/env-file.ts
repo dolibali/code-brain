@@ -6,6 +6,10 @@ export type EnvFileWriteResult = {
   updatedNames: string[];
 };
 
+export function isValidEnvName(input: string | undefined): input is string {
+  return typeof input === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(input);
+}
+
 export function getEnvFilePath(configPath: string): string {
   return path.join(path.dirname(configPath), "env");
 }
@@ -66,7 +70,7 @@ export async function loadEnvFile(configPath: string): Promise<void> {
 }
 
 export async function writeEnvValues(configPath: string, updates: Record<string, string>): Promise<EnvFileWriteResult | null> {
-  const entries = Object.entries(updates).filter(([name, value]) => name && value);
+  const entries = Object.entries(updates).filter(([name, value]) => isValidEnvName(name) && value);
   if (entries.length === 0) {
     return null;
   }

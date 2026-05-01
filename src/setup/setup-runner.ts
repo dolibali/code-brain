@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { randomBytes } from "node:crypto";
+import { clearLine, cursorTo, emitKeypressEvents, moveCursor } from "node:readline";
 import type { Interface } from "node:readline/promises";
 import {
   getDefaultConfig,
@@ -21,6 +22,8 @@ import {
   providerIds
 } from "./presets.js";
 import { formatDoctorReport, runDoctor } from "./diagnostics.js";
+import { fetchOpenAiCompatibleModelIds } from "./model-list.js";
+import { isValidEnvName } from "../config/env-file.js";
 
 export type RemoteMode = "none" | "client" | "server" | "both";
 
@@ -141,6 +144,92 @@ async function promptSecret(
     };
 
     input.on("data", onData);
+  });
+}
+
+async function promptSelect(
+  rl: Interface,
+  label: string,
+  choices: string[],
+  defaultValue?: string
+): Promise<string> {
+  const uniqueChoices = Array.from(new Set(choices.filter((choice) => choice.length > 0)));
+  if (uniqueChoices.length === 0) {
+    return promptText(rl, label, defaultValue);
+  }
+
+  if (!input.isTTY || !("setRawMode" in input)) {
+    return promptText(rl, label, defaultValue ?? uniqueChoices[0]);
+  }
+
+  return new Promise((resolve, reject) => {
+    const visibleRows = Math.min(10, uniqueChoices.length);
+    const defaultIndex = defaultValue ? uniqueChoices.indexOf(defaultValue) : -1;
+    let selectedIndex = defaultIndex >= 0 ? defaultIndex : 0;
+    let renderedRows = 0;
+    const wasRaw = input.isRaw;
+
+    const render = (): void => {
+      if (renderedRows > 0) {
+        moveCursor(output, 0, -renderedRows);
+      }
+
+      const start = Math.min(Math.max(0, selectedIndex - Math.floor(visibleRows / 2)), Math.max(0, uniqueChoices.length - visibleRows));
+      const rows = uniqueChoices.slice(start, start + visibleRows);
+      const lines = [
+        `${label} (↑/↓, Enter)`,
+        ...rows.map((choice, offset) => {
+          const index = start + offset;
+          return `${index === selectedIndex ? ">" : " "} ${choice}`;
+        })
+      ];
+
+      for (const line of lines) {
+        clearLine(output, 0);
+        cursorTo(output, 0);
+        output.write(`${line}\n`);
+      }
+      renderedRows = lines.length;
+    };
+
+    const cleanup = (): void => {
+      input.off("keypress", onKeypress);
+      input.setRawMode(wasRaw);
+      rl.resume();
+    };
+
+    const onKeypress = (_character: string | undefined, key: { name?: string; ctrl?: boolean }): void => {
+      if (key.ctrl && key.name === "c") {
+        cleanup();
+        reject(new Error("setup cancelled."));
+        return;
+      }
+      if (key.name === "up") {
+        selectedIndex = selectedIndex === 0 ? uniqueChoices.length - 1 : selectedIndex - 1;
+        render();
+        return;
+      }
+      if (key.name === "down") {
+        selectedIndex = selectedIndex === uniqueChoices.length - 1 ? 0 : selectedIndex + 1;
+        render();
+        return;
+      }
+      if (key.name === "return") {
+        const selected = uniqueChoices[selectedIndex] ?? uniqueChoices[0];
+        cleanup();
+        clearLine(output, 0);
+        cursorTo(output, 0);
+        output.write(`${label}: ${selected}\n`);
+        resolve(selected);
+      }
+    };
+
+    rl.pause();
+    emitKeypressEvents(input);
+    input.setRawMode(true);
+    input.resume();
+    input.on("keypress", onKeypress);
+    render();
   });
 }
 
@@ -316,13 +405,54 @@ function providerDefaults(input: {
   customApiKeyEnv: string;
 }): ProviderPreset {
   const preset = input.presets[input.providerId];
+  const existingApiKeyEnv = isValidEnvName(input.existing?.apiKeyEnv) ? input.existing.apiKeyEnv : undefined;
   return {
     mode: "openai-compatible",
     baseUrl: input.existing?.baseUrl ?? preset?.baseUrl ?? "",
-    apiKeyEnv: input.existing?.apiKeyEnv ?? preset?.apiKeyEnv ?? input.customApiKeyEnv,
+    apiKeyEnv: existingApiKeyEnv ?? preset?.apiKeyEnv ?? input.customApiKeyEnv,
     defaultModel: input.existing?.defaultModel ?? preset?.defaultModel ?? "",
     capabilities: input.existing?.capabilities ?? preset?.capabilities ?? []
   };
+}
+
+async function promptModel(inputOptions: {
+  rl: Interface;
+  label: string;
+  baseUrl: string;
+  apiKey: string;
+  defaultModel: string;
+}): Promise<string> {
+  if (!inputOptions.apiKey) {
+    return promptText(inputOptions.rl, inputOptions.label, inputOptions.defaultModel);
+  }
+
+  try {
+    output.write(`Fetching models from ${inputOptions.baseUrl.replace(/\/+$/, "")}/models ...\n`);
+    const models = await fetchOpenAiCompatibleModelIds({
+      baseUrl: inputOptions.baseUrl,
+      apiKey: inputOptions.apiKey
+    });
+    if (models.length === 0) {
+      output.write("No models returned by provider; falling back to manual model input.\n");
+      return promptText(inputOptions.rl, inputOptions.label, inputOptions.defaultModel);
+    }
+
+    const manualChoice = "Other: enter model manually";
+    const selected = await promptSelect(
+      inputOptions.rl,
+      inputOptions.label,
+      [...models, manualChoice],
+      models.includes(inputOptions.defaultModel) ? inputOptions.defaultModel : models[0]
+    );
+    if (selected === manualChoice) {
+      return promptText(inputOptions.rl, inputOptions.label, inputOptions.defaultModel);
+    }
+    return selected;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    output.write(`Could not fetch models: ${message}. Falling back to manual model input.\n`);
+    return promptText(inputOptions.rl, inputOptions.label, inputOptions.defaultModel);
+  }
 }
 
 function collectEnvHints(config: BrainCodeConfig): string[] {
@@ -488,23 +618,30 @@ async function buildInteractiveConfig(
         existing: config.llm.providers[provider],
         customApiKeyEnv: "LLM_API_KEY"
       });
-      const llmOptions: SetupOptions = {
-        ...options,
-        llmProvider: provider,
-        enableLlm: true,
-        llmBaseUrl: await promptText(rl, "LLM OpenAI-compatible base URL", defaults.baseUrl),
-        llmApiKeyEnv: await promptText(rl, "LLM API key env", defaults.apiKeyEnv),
-        llmModel: await promptText(rl, "LLM model", defaults.defaultModel)
-      };
-      const llmApiKeyEnv = llmOptions.llmApiKeyEnv ?? defaults.apiKeyEnv;
+      const llmBaseUrl = await promptText(rl, "LLM OpenAI-compatible base URL", defaults.baseUrl);
+      const llmApiKeyEnv = defaults.apiKeyEnv;
       const apiKey = await promptSecret(
         rl,
-        `LLM API key for ${llmApiKeyEnv} (stored in ${getEnvFilePath(loaded.path)}, leave blank to skip)`,
+        `LLM API key (stored as ${llmApiKeyEnv} in ${getEnvFilePath(loaded.path)}, leave blank to skip)`,
         process.env[llmApiKeyEnv]
       );
       if (apiKey && apiKey !== process.env[llmApiKeyEnv]) {
         envUpdates[llmApiKeyEnv] = apiKey;
       }
+      const llmOptions: SetupOptions = {
+        ...options,
+        llmProvider: provider,
+        enableLlm: true,
+        llmBaseUrl,
+        llmApiKeyEnv,
+        llmModel: await promptModel({
+          rl,
+          label: "LLM model",
+          baseUrl: llmBaseUrl,
+          apiKey,
+          defaultModel: defaults.defaultModel
+        })
+      };
       config = configureLlm(config, llmOptions);
     } else {
       config = { ...config, llm: { ...config.llm, enabled: false } };
@@ -523,26 +660,33 @@ async function buildInteractiveConfig(
         customApiKeyEnv: "EMBEDDING_API_KEY"
       });
       const presetDimensions = EMBEDDING_PROVIDER_PRESETS[provider]?.dimensions ?? config.embedding.dimensions;
-      const embeddingOptions: SetupOptions = {
-        ...options,
-        embeddingProvider: provider,
-        enableEmbedding: true,
-        embeddingBaseUrl: await promptText(rl, "Embedding OpenAI-compatible base URL", defaults.baseUrl),
-        embeddingApiKeyEnv: await promptText(rl, "Embedding API key env", defaults.apiKeyEnv),
-        embeddingModel: await promptText(rl, "Embedding model", defaults.defaultModel),
-        embeddingDimensions: Number(
-          await promptText(rl, "Embedding dimensions", presetDimensions ? String(presetDimensions) : "")
-        ) || undefined
-      };
-      const embeddingApiKeyEnv = embeddingOptions.embeddingApiKeyEnv ?? defaults.apiKeyEnv;
+      const embeddingBaseUrl = await promptText(rl, "Embedding OpenAI-compatible base URL", defaults.baseUrl);
+      const embeddingApiKeyEnv = defaults.apiKeyEnv;
       const apiKey = await promptSecret(
         rl,
-        `Embedding API key for ${embeddingApiKeyEnv} (stored in ${getEnvFilePath(loaded.path)}, leave blank to skip)`,
+        `Embedding API key (stored as ${embeddingApiKeyEnv} in ${getEnvFilePath(loaded.path)}, leave blank to skip)`,
         process.env[embeddingApiKeyEnv]
       );
       if (apiKey && apiKey !== process.env[embeddingApiKeyEnv]) {
         envUpdates[embeddingApiKeyEnv] = apiKey;
       }
+      const embeddingOptions: SetupOptions = {
+        ...options,
+        embeddingProvider: provider,
+        enableEmbedding: true,
+        embeddingBaseUrl,
+        embeddingApiKeyEnv,
+        embeddingModel: await promptModel({
+          rl,
+          label: "Embedding model",
+          baseUrl: embeddingBaseUrl,
+          apiKey,
+          defaultModel: defaults.defaultModel
+        }),
+        embeddingDimensions: Number(
+          await promptText(rl, "Embedding dimensions", presetDimensions ? String(presetDimensions) : "")
+        ) || undefined
+      };
       config = configureEmbedding(config, embeddingOptions);
     } else {
       config = { ...config, embedding: { ...config.embedding, enabled: false } };
