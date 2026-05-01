@@ -314,6 +314,12 @@ Alias commands should work.
       "--enable-llm",
       "--llm-provider",
       "deepseek",
+      "--llm-base-url",
+      "https://llm-gateway.example.com/v1",
+      "--llm-api-key-env",
+      "CUSTOM_DEEPSEEK_KEY",
+      "--llm-model",
+      "deepseek-chat-custom",
       "--enable-embedding",
       "--embedding-provider",
       "qwen_bailian",
@@ -330,10 +336,13 @@ Alias commands should work.
 
     expect(result.failed).toBe(false);
     expect(result.stdout).toContain("MCP stdio config snippet");
-    expect(result.stdout).toContain("export DEEPSEEK_API_KEY");
+    expect(result.stdout).toContain("export CUSTOM_DEEPSEEK_KEY");
     expect(result.stdout).toContain('export BRAINCODE_REMOTE_TOKEN="..."');
     expect(result.stdout).toMatch(/export BRAINCODE_SERVER_TOKEN="[A-Za-z0-9_-]{43}"/);
     expect(written).toContain("provider: deepseek");
+    expect(written).toContain("base_url: https://llm-gateway.example.com/v1");
+    expect(written).toContain("api_key_env: CUSTOM_DEEPSEEK_KEY");
+    expect(written).toContain("default_model: deepseek-chat-custom");
     expect(written).toContain("provider: qwen_bailian");
     expect(written).toContain("api_key_env: DASHSCOPE_API_KEY");
     expect(written).toContain("remote:");

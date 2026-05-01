@@ -1,8 +1,9 @@
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { getDefaultConfig, loadConfig, upsertProject, writeConfig } from "../src/config/load-config.js";
+import { getEnvFilePath, writeEnvValues } from "../src/config/env-file.js";
 import { openIndexDatabase } from "../src/storage/index-db.js";
 
 const tempRoots: string[] = [];
@@ -235,6 +236,48 @@ sync:
     expect(loaded.config.sync.concurrency).toBe(4);
     expect(loaded.config.sync.compression).toBe("gzip");
     expect(loaded.config.sync.pruneOnPull).toBe(true);
+  });
+
+  it("loads secrets from the sibling env file without storing them in yaml", async () => {
+    const root = await createTempRoot();
+    const configPath = path.join(root, "config.yaml");
+    await writeFile(
+      configPath,
+      `
+brain:
+  repo: ./brain
+  index_db: ./state/index.sqlite
+projects: []
+llm:
+  enabled: true
+  provider: zhipu
+  providers:
+    zhipu:
+      mode: openai-compatible
+      base_url: https://gateway.example.com/v1
+      api_key_env: ZHIPU_API_KEY
+      default_model: glm-4.5
+      capabilities: [chat_completions]
+  routing:
+    search: zhipu
+`,
+      "utf8"
+    );
+    delete process.env.ZHIPU_API_KEY;
+
+    const result = await writeEnvValues(configPath, {
+      ZHIPU_API_KEY: "secret-key"
+    });
+    const envPath = getEnvFilePath(configPath);
+    const envStat = await stat(envPath);
+    const loaded = await loadConfig(configPath);
+    const rawConfig = await readFile(configPath, "utf8");
+
+    expect(result?.path).toBe(envPath);
+    expect(envStat.mode & 0o777).toBe(0o600);
+    expect(process.env.ZHIPU_API_KEY).toBe("secret-key");
+    expect(loaded.config.llm.providers.zhipu?.baseUrl).toBe("https://gateway.example.com/v1");
+    expect(rawConfig).not.toContain("secret-key");
   });
 });
 

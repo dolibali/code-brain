@@ -10,6 +10,7 @@ import {
   type LoadedConfig
 } from "../config/load-config.js";
 import type { BrainCodeConfig, ProviderPreset } from "../config/schema.js";
+import { getEnvFilePath, writeEnvValues } from "../config/env-file.js";
 import { ensureBrainDirectories } from "../projects/project-registry.js";
 import { openIndexDatabase } from "../storage/index-db.js";
 import { detectGitDefaults, type GitDefaults } from "./git-detect.js";
@@ -57,8 +58,15 @@ export type SetupOptions = {
 export type SetupResult = {
   configPath: string;
   config: BrainCodeConfig;
+  envFilePath: string;
+  envFileUpdatedNames: string[];
   envHints: string[];
   doctorOutput: string;
+};
+
+type SetupBuildResult = {
+  config: BrainCodeConfig;
+  envUpdates: Record<string, string>;
 };
 
 function parseBoolean(inputValue: string, defaultValue: boolean): boolean {
@@ -87,6 +95,53 @@ async function promptConfirm(
   const suffix = defaultValue ? " [Y/n]" : " [y/N]";
   const answer = await rl.question(`${label}${suffix}: `);
   return parseBoolean(answer, defaultValue);
+}
+
+async function promptSecret(
+  rl: Interface,
+  label: string,
+  defaultValue?: string
+): Promise<string> {
+  if (!input.isTTY || !("setRawMode" in input)) {
+    return promptText(rl, label, defaultValue);
+  }
+
+  return new Promise((resolve, reject) => {
+    const wasRaw = input.isRaw;
+    let value = "";
+    output.write(`${label}${defaultValue ? " [configured]" : ""}: `);
+    rl.pause();
+    input.setRawMode(true);
+    input.resume();
+
+    const cleanup = (): void => {
+      input.off("data", onData);
+      input.setRawMode(wasRaw);
+      rl.resume();
+      output.write("\n");
+    };
+
+    const onData = (chunk: Buffer): void => {
+      const text = chunk.toString("utf8");
+      if (text === "\u0003") {
+        cleanup();
+        reject(new Error("setup cancelled."));
+        return;
+      }
+      if (text === "\r" || text === "\n" || text === "\r\n") {
+        cleanup();
+        resolve(value || defaultValue || "");
+        return;
+      }
+      if (text === "\u007f" || text === "\b") {
+        value = value.slice(0, -1);
+        return;
+      }
+      value += text;
+    };
+
+    input.on("data", onData);
+  });
 }
 
 function requireFields(options: SetupOptions, fields: Array<keyof SetupOptions>): void {
@@ -135,7 +190,12 @@ function applyProviderPreset(input: {
   if (!preset) {
     throw new Error(`Unknown provider '${input.providerId}'.`);
   }
-  return preset;
+  return {
+    ...preset,
+    baseUrl: input.customBaseUrl ?? preset.baseUrl,
+    apiKeyEnv: input.customApiKeyEnv ?? preset.apiKeyEnv,
+    defaultModel: input.customModel ?? preset.defaultModel
+  };
 }
 
 function configureLlm(config: BrainCodeConfig, options: SetupOptions): BrainCodeConfig {
@@ -249,6 +309,22 @@ function generateServerToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
+function providerDefaults(input: {
+  providerId: string;
+  presets: Record<string, ProviderPreset>;
+  existing?: ProviderPreset;
+  customApiKeyEnv: string;
+}): ProviderPreset {
+  const preset = input.presets[input.providerId];
+  return {
+    mode: "openai-compatible",
+    baseUrl: input.existing?.baseUrl ?? preset?.baseUrl ?? "",
+    apiKeyEnv: input.existing?.apiKeyEnv ?? preset?.apiKeyEnv ?? input.customApiKeyEnv,
+    defaultModel: input.existing?.defaultModel ?? preset?.defaultModel ?? "",
+    capabilities: input.existing?.capabilities ?? preset?.capabilities ?? []
+  };
+}
+
 function collectEnvHints(config: BrainCodeConfig): string[] {
   const hints: string[] = [];
   const seen = new Set<string>();
@@ -319,7 +395,7 @@ function baseConfig(loaded: LoadedConfig, options: SetupOptions): BrainCodeConfi
 async function buildNonInteractiveConfig(
   loaded: LoadedConfig,
   options: SetupOptions
-): Promise<BrainCodeConfig> {
+): Promise<SetupBuildResult> {
   requireFields(options, ["projectName", "projectPath"]);
   let config = baseConfig(loaded, options);
 
@@ -356,15 +432,19 @@ async function buildNonInteractiveConfig(
   }
 
   config = configureRemote(config, options);
-  return config;
+  return {
+    config,
+    envUpdates: {}
+  };
 }
 
 async function buildInteractiveConfig(
   loaded: LoadedConfig,
   options: SetupOptions,
   gitDefaults: GitDefaults
-): Promise<BrainCodeConfig | null> {
+): Promise<SetupBuildResult | null> {
   const rl = createInterface({ input, output });
+  const envUpdates: Record<string, string> = {};
   try {
     if (loaded.exists && !options.force) {
       const shouldContinue = await promptConfirm(rl, `Modify existing config at ${loaded.path}?`, true);
@@ -402,11 +482,28 @@ async function buildInteractiveConfig(
         `LLM provider (${providerIds(LLM_PROVIDER_PRESETS)})`,
         config.llm.provider ?? "deepseek"
       );
-      const llmOptions: SetupOptions = { ...options, llmProvider: provider, enableLlm: true };
-      if (provider === CUSTOM_PROVIDER_ID) {
-        llmOptions.llmBaseUrl = await promptText(rl, "LLM OpenAI-compatible base URL");
-        llmOptions.llmApiKeyEnv = await promptText(rl, "LLM API key env", "LLM_API_KEY");
-        llmOptions.llmModel = await promptText(rl, "LLM model");
+      const defaults = providerDefaults({
+        providerId: provider,
+        presets: LLM_PROVIDER_PRESETS,
+        existing: config.llm.providers[provider],
+        customApiKeyEnv: "LLM_API_KEY"
+      });
+      const llmOptions: SetupOptions = {
+        ...options,
+        llmProvider: provider,
+        enableLlm: true,
+        llmBaseUrl: await promptText(rl, "LLM OpenAI-compatible base URL", defaults.baseUrl),
+        llmApiKeyEnv: await promptText(rl, "LLM API key env", defaults.apiKeyEnv),
+        llmModel: await promptText(rl, "LLM model", defaults.defaultModel)
+      };
+      const llmApiKeyEnv = llmOptions.llmApiKeyEnv ?? defaults.apiKeyEnv;
+      const apiKey = await promptSecret(
+        rl,
+        `LLM API key for ${llmApiKeyEnv} (stored in ${getEnvFilePath(loaded.path)}, leave blank to skip)`,
+        process.env[llmApiKeyEnv]
+      );
+      if (apiKey && apiKey !== process.env[llmApiKeyEnv]) {
+        envUpdates[llmApiKeyEnv] = apiKey;
       }
       config = configureLlm(config, llmOptions);
     } else {
@@ -419,11 +516,32 @@ async function buildInteractiveConfig(
         `Embedding provider (${providerIds(EMBEDDING_PROVIDER_PRESETS)})`,
         config.embedding.provider ?? "qwen_bailian"
       );
-      const embeddingOptions: SetupOptions = { ...options, embeddingProvider: provider, enableEmbedding: true };
-      if (provider === CUSTOM_PROVIDER_ID) {
-        embeddingOptions.embeddingBaseUrl = await promptText(rl, "Embedding OpenAI-compatible base URL");
-        embeddingOptions.embeddingApiKeyEnv = await promptText(rl, "Embedding API key env", "EMBEDDING_API_KEY");
-        embeddingOptions.embeddingModel = await promptText(rl, "Embedding model");
+      const defaults = providerDefaults({
+        providerId: provider,
+        presets: EMBEDDING_PROVIDER_PRESETS,
+        existing: config.embedding.providers[provider],
+        customApiKeyEnv: "EMBEDDING_API_KEY"
+      });
+      const presetDimensions = EMBEDDING_PROVIDER_PRESETS[provider]?.dimensions ?? config.embedding.dimensions;
+      const embeddingOptions: SetupOptions = {
+        ...options,
+        embeddingProvider: provider,
+        enableEmbedding: true,
+        embeddingBaseUrl: await promptText(rl, "Embedding OpenAI-compatible base URL", defaults.baseUrl),
+        embeddingApiKeyEnv: await promptText(rl, "Embedding API key env", defaults.apiKeyEnv),
+        embeddingModel: await promptText(rl, "Embedding model", defaults.defaultModel),
+        embeddingDimensions: Number(
+          await promptText(rl, "Embedding dimensions", presetDimensions ? String(presetDimensions) : "")
+        ) || undefined
+      };
+      const embeddingApiKeyEnv = embeddingOptions.embeddingApiKeyEnv ?? defaults.apiKeyEnv;
+      const apiKey = await promptSecret(
+        rl,
+        `Embedding API key for ${embeddingApiKeyEnv} (stored in ${getEnvFilePath(loaded.path)}, leave blank to skip)`,
+        process.env[embeddingApiKeyEnv]
+      );
+      if (apiKey && apiKey !== process.env[embeddingApiKeyEnv]) {
+        envUpdates[embeddingApiKeyEnv] = apiKey;
       }
       config = configureEmbedding(config, embeddingOptions);
     } else {
@@ -435,13 +553,27 @@ async function buildInteractiveConfig(
     if (remoteMode === "client" || remoteMode === "both") {
       remoteOptions.remoteUrl = await promptText(rl, "Remote server URL", config.remote.url ?? "");
       remoteOptions.remoteTokenEnv = await promptText(rl, "Remote token env", config.remote.tokenEnv ?? "BRAINCODE_REMOTE_TOKEN");
+      const remoteToken = await promptSecret(
+        rl,
+        `Remote bearer token for ${remoteOptions.remoteTokenEnv} (stored in ${getEnvFilePath(loaded.path)}, leave blank to skip)`,
+        process.env[remoteOptions.remoteTokenEnv]
+      );
+      if (remoteToken && remoteToken !== process.env[remoteOptions.remoteTokenEnv]) {
+        envUpdates[remoteOptions.remoteTokenEnv] = remoteToken;
+      }
     }
     if (remoteMode === "server" || remoteMode === "both") {
       remoteOptions.serverHost = await promptText(rl, "Server host", config.server.host);
       remoteOptions.serverPort = Number(await promptText(rl, "Server port", String(config.server.port)));
       remoteOptions.serverTokenEnv = await promptText(rl, "Server token env", config.server.authTokenEnv ?? "BRAINCODE_SERVER_TOKEN");
+      if (remoteOptions.serverTokenEnv && !process.env[remoteOptions.serverTokenEnv]) {
+        envUpdates[remoteOptions.serverTokenEnv] = generateServerToken();
+      }
     }
-    return configureRemote(config, remoteOptions);
+    return {
+      config: configureRemote(config, remoteOptions),
+      envUpdates
+    };
   } finally {
     rl.close();
   }
@@ -450,18 +582,19 @@ async function buildInteractiveConfig(
 export async function runSetup(options: SetupOptions): Promise<SetupResult | null> {
   const loaded = await loadConfig(options.configPath);
   const gitDefaults = await detectGitDefaults();
-  const config = options.nonInteractive
+  const built = options.nonInteractive
     ? await buildNonInteractiveConfig(loaded, options)
     : await buildInteractiveConfig(loaded, options, gitDefaults);
 
-  if (!config) {
+  if (!built) {
     return null;
   }
 
   const savedPath = await writeConfig({
     path: options.configPath,
-    config
+    config: built.config
   });
+  const envWrite = await writeEnvValues(savedPath, built.envUpdates);
   const nextLoaded = await loadConfig(savedPath);
   await initializeStorage(nextLoaded.config);
   const doctorOutput = formatDoctorReport(await runDoctor(savedPath));
@@ -469,6 +602,8 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult | nul
   return {
     configPath: savedPath,
     config: nextLoaded.config,
+    envFilePath: getEnvFilePath(savedPath),
+    envFileUpdatedNames: envWrite?.updatedNames ?? [],
     envHints: collectEnvHints(nextLoaded.config),
     doctorOutput
   };
@@ -479,6 +614,9 @@ export function formatSetupResult(result: SetupResult): string {
     `config_path: ${result.configPath}`,
     `brain_repo: ${result.config.brain.repo}`,
     `index_db: ${result.config.brain.indexDb}`,
+    `env_file: ${result.envFilePath}${
+      result.envFileUpdatedNames.length > 0 ? ` (updated: ${result.envFileUpdatedNames.join(", ")})` : ""
+    }`,
     "",
     printMcpSnippets(),
     result.envHints.length > 0 ? `\nEnvironment variables to set:\n${result.envHints.join("\n")}` : "",

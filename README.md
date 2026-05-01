@@ -50,7 +50,7 @@ braincode setup --non-interactive \
   --branch main
 ```
 
-`setup` guides local paths, project identity, optional LLM/embedding providers, remote sync, and MCP snippets. It never writes API keys or tokens to config; it only stores environment variable names. When remote server mode is enabled, `setup` prints a strong random `BRAINCODE_SERVER_TOKEN` export hint for you to save in your shell profile or secret manager.
+`setup` guides local paths, project identity, optional LLM/embedding providers, remote sync, and MCP snippets. It stores provider base URLs, model names, and environment variable names in YAML. When you enter API keys or remote tokens interactively, setup writes them to a sibling env file such as `~/.braincode/env` with `0600` permissions; secrets are never written to `config.yaml`.
 
 Minimal script-friendly initialization is still available:
 
@@ -247,7 +247,7 @@ sync:
   prune_on_pull: true
 ```
 
-`braincode setup` can generate the server token export hint for this env var. It does not write the token to YAML; remote clients should set `BRAINCODE_REMOTE_TOKEN` to the same value when connecting.
+`braincode setup` can generate and store the server token in the protected env file for this env var. It does not write the token to YAML; remote clients should set or store `BRAINCODE_REMOTE_TOKEN` to the same value when connecting.
 
 Pull remote truth into the local cache:
 

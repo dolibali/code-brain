@@ -67,6 +67,28 @@ Important notes
 Session: 2026-05-01
 
 What was implemented
+- Improved `braincode setup` so provider presets are only defaults, not final answers.
+- Interactive setup now prompts users to confirm or edit LLM and embedding `base_url`, API key env name, and model after choosing a provider preset.
+- Interactive setup can accept API keys and remote bearer tokens directly.
+- Added a protected sibling env file, such as `~/.braincode/env`, for storing secrets outside `config.yaml`.
+- BrainCode now automatically loads the sibling env file during config loading without overriding explicitly provided environment variables.
+- Server mode setup writes the generated `BRAINCODE_SERVER_TOKEN` to the protected env file instead of only printing an export hint.
+- Added tests for env file loading, `0600` permissions, and preset base URL/model/env overrides.
+- Updated README and DESIGN.md to document the new setup behavior.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm pack --dry-run` passes and reports `braincode@0.1.0`
+
+Important notes
+- Secrets still never go into YAML.
+- Package version remains `0.1.0`.
+
+Session: 2026-05-01
+
+What was implemented
 - Simplified the human-facing CLI command surface to the new BrainCode naming:
   - `project add --name/--path/--url/--branch`
   - `pj add -n/-p/-u/-b`

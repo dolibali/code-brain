@@ -9,6 +9,7 @@ import {
   type ProjectRegistration
 } from "./schema.js";
 import { upsertProjectIdentity } from "./project-identity.js";
+import { loadEnvFile } from "./env-file.js";
 
 export const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".braincode", "config.yaml");
 
@@ -253,6 +254,7 @@ function normalizeConfigPaths(config: BrainCodeConfig, configFilePath: string): 
 export async function loadConfig(explicitPath?: string): Promise<LoadedConfig> {
   const resolvedPath = resolveConfigPath(explicitPath);
   const defaults = getDefaultConfig(resolvedPath);
+  await loadEnvFile(resolvedPath);
 
   try {
     const raw = await readFile(resolvedPath, "utf8");
