@@ -1,6 +1,18 @@
 [
   {
     "category": "functional",
+    "description": "Setup wizard can configure BrainCode without hand-editing YAML",
+    "steps": [
+      "Run `npm run cli -- setup --non-interactive --project-name braincode --project-path ~/work/braincode --project-url github.com/example/braincode --branch main`",
+      "Verify config.yaml is created and project identity is registered",
+      "Run `npm run cli -- doctor` and verify warnings do not block local FTS5 usage",
+      "Run `npm run cli -- config path`, `config show`, and `config validate`",
+      "Verify API keys and tokens are only stored as environment variable names"
+    ],
+    "passes": true
+  },
+  {
+    "category": "functional",
     "description": "CLI can load config from ~/.braincode/config.yaml or BRAINCODE_CONFIG with sane defaults",
     "steps": [
       "Delete any temporary test config file",

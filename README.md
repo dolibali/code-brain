@@ -32,7 +32,25 @@ For local development in this repo:
 
 ## Quickstart
 
-1. Initialize local state:
+1. Run the setup wizard:
+
+```bash
+braincode setup
+```
+
+For scripted setup, use non-interactive mode:
+
+```bash
+braincode setup --non-interactive \
+  --project-name kilo-code \
+  --project-path ~/work/kilo-code \
+  --project-url github.com/your-org/kilo-code \
+  --branch main
+```
+
+`setup` guides local paths, project identity, optional LLM/embedding providers, remote sync, and MCP snippets. It never writes API keys or tokens to config; it only stores environment variable names.
+
+Minimal script-friendly initialization is still available:
 
 ```bash
 braincode init
@@ -46,7 +64,7 @@ braincode --config ./tmp/braincode/config.yaml init
 
 In that mode, the generated `brain` and `state/index.sqlite` paths are written relative to the config file.
 
-2. Register a project:
+2. Register another project manually when needed:
 
 ```bash
 braincode project add \
@@ -98,6 +116,12 @@ braincode link \
 
 ```bash
 braincode init
+braincode setup
+braincode doctor
+braincode config path
+braincode config show
+braincode config validate
+braincode config edit
 braincode serve
 braincode serve --remote --ip 127.0.0.1 --port 7331
 braincode project list
@@ -173,6 +197,12 @@ braincode serve -r -i 127.0.0.1 -p 7331
 For public access, put this HTTP server behind HTTPS/TLS and configure `server.auth_token_env`.
 
 ## Config
+
+Recommended first-run command:
+
+```bash
+braincode setup
+```
 
 Minimal config created by `braincode init`:
 
@@ -313,7 +343,7 @@ If the embedding provider is unavailable, BrainCode falls back to local FTS5.
 
 ## Agent Loop
 
-The recommended shared recipe is documented in [docs/BRAIN_SYNC_RECIPE.md](/Users/zhangrich/work/braincode/docs/BRAIN_SYNC_RECIPE.md:1).
+The recommended shared recipe is documented in [docs/BRAIN_SYNC_RECIPE.md](/Users/zhangrich/work/code-brain/docs/BRAIN_SYNC_RECIPE.md:1).
 
 Short version:
 
@@ -325,10 +355,10 @@ Short version:
 
 Integration notes:
 
-- [Claude Code](/Users/zhangrich/work/braincode/docs/integrations/claude-code.md:1)
-- [Codex](/Users/zhangrich/work/braincode/docs/integrations/codex.md:1)
-- [Cursor](/Users/zhangrich/work/braincode/docs/integrations/cursor.md:1)
-- [Gemini CLI](/Users/zhangrich/work/braincode/docs/integrations/gemini-cli.md:1)
+- [Claude Code](/Users/zhangrich/work/code-brain/docs/integrations/claude-code.md:1)
+- [Codex](/Users/zhangrich/work/code-brain/docs/integrations/codex.md:1)
+- [Cursor](/Users/zhangrich/work/code-brain/docs/integrations/cursor.md:1)
+- [Gemini CLI](/Users/zhangrich/work/code-brain/docs/integrations/gemini-cli.md:1)
 
 ## Notes
 

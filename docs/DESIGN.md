@@ -1127,6 +1127,12 @@ v1 对外只暴露少量稳定工具：
 CLI 与 MCP 共享同一套 operations：
 
 ```bash
+braincode setup
+braincode doctor
+braincode config path
+braincode config show
+braincode config validate
+braincode config edit
 braincode serve
 braincode serve --remote --ip 127.0.0.1 --port 7331
 braincode search "electron sandbox crash" --project kilo-code
@@ -1152,6 +1158,17 @@ braincode idx --all
 
 `braincode serve --remote` 在未传 `--ip/--port` 或 `-i/-p` 时使用配置中的 `server.host/server.port`，默认值为 `127.0.0.1:7331`。
 
+### 8.3 配置向导
+
+`braincode setup` 是推荐首次入口，负责引导本地路径、项目注册、可选 LLM、可选 embedding、远程同步和 MCP 客户端配置提示。
+
+- `braincode init` 保持最小、脚本友好的 bootstrap，不默认进入交互
+- `braincode setup --non-interactive` 用于自动化部署，缺少必要参数时必须失败并列出缺失项
+- API key 和 token 不写入 config，只保存 `api_key_env`、`token_env`、`auth_token_env`
+- `braincode doctor` 负责检查 config、路径、项目 roots、模型/远程所需环境变量
+- `braincode config path/show/validate/edit` 提供固定配置维护入口
+- setup 不改变 MCP thin-service 工具面
+
 CLI 的正式职责：
 
 - 配置与项目注册
@@ -1167,7 +1184,7 @@ CLI/MCP 一致性要求：
 - 默认共享的业务操作不能出现“CLI 能做但 MCP 不能做”或反之的行为分裂
 - 若后续提供 `delete_page`，应默认仅作为 CLI-only 管理命令存在，不作为 Agent 的默认工作流接口
 
-### 8.3 配置文件
+### 8.4 配置文件
 
 最小配置示例：
 
@@ -1300,7 +1317,7 @@ sync:
 - 可以按能力覆盖 `search`
 - 必须允许声明 capability flags，例如 `chat_completions`、`reasoning_control`
 
-### 8.4 远程部署与同步
+### 8.5 远程部署与同步
 
 远程模式用于单用户多设备共享记忆：
 

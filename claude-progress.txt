@@ -89,6 +89,30 @@ Important notes
 Session: 2026-05-01
 
 What was implemented
+- Added `braincode setup` as the recommended first-run and reconfiguration entrypoint.
+- Added non-interactive setup for scripted installs with project registration, optional LLM, optional embedding, remote client/server config, and MCP snippets.
+- Added `braincode doctor` for config, path, project root, environment variable, and remote-server readiness diagnostics.
+- Added `braincode config path/show/validate/edit` for fixed config maintenance workflows.
+- Added provider presets for DeepSeek, Qwen Bailian, GLM/Zhipu, MiniMax, Kimi, and custom OpenAI-compatible setup.
+- Kept secrets out of config: setup only writes env var names and prints export hints for missing values.
+- Kept `braincode init` as the minimal script-friendly bootstrap path.
+- Updated README, DESIGN.md, and feature tracking with setup/doctor/config usage.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+- `npm run smoke:mcp` passes
+- `npm pack --dry-run` passes
+- `package.json` version remains `0.1.0`
+
+Important notes
+- No MCP tools were added or renamed.
+- The setup flow uses Node's built-in readline and adds no runtime dependency.
+
+Session: 2026-05-01
+
+What was implemented
 - Reset package version metadata from `0.2.1` to `0.1.0`.
 - Updated default MCP config version examples to `0.1.0`.
 - Added README instructions for upgrading an existing global install with `npm install -g braincode@latest`.

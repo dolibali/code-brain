@@ -313,10 +313,8 @@ export async function loadConfig(explicitPath?: string): Promise<LoadedConfig> {
   }
 }
 
-export async function writeConfig({ path: explicitPath, config }: ConfigWriteInput): Promise<string> {
-  const resolvedPath = resolveConfigPath(explicitPath);
-  await mkdir(path.dirname(resolvedPath), { recursive: true });
-  const serialized = YAML.stringify({
+export function serializeConfig(config: BrainCodeConfig): string {
+  return YAML.stringify({
     brain: {
       repo: config.brain.repo,
       index_db: config.brain.indexDb
@@ -418,6 +416,12 @@ export async function writeConfig({ path: explicitPath, config }: ConfigWriteInp
       prune_on_pull: config.sync.pruneOnPull
     }
   });
+}
+
+export async function writeConfig({ path: explicitPath, config }: ConfigWriteInput): Promise<string> {
+  const resolvedPath = resolveConfigPath(explicitPath);
+  await mkdir(path.dirname(resolvedPath), { recursive: true });
+  const serialized = serializeConfig(config);
 
   await writeFile(resolvedPath, serialized, "utf8");
   return resolvedPath;

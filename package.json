@@ -27,6 +27,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx src/main.ts",
     "cli": "tsx src/main.ts",
+    "doctor": "tsx src/main.ts doctor",
     "serve": "tsx src/main.ts serve",
     "prepack": "npm run build",
     "smoke:mcp": "node scripts/smoke-mcp.mjs",

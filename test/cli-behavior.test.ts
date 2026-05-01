@@ -88,6 +88,9 @@ describe("CLI help and errors", () => {
     expect(result.stdout).toContain("s");
     expect(result.stdout).toContain("put");
     expect(result.stdout).toContain("serve");
+    expect(result.stdout).toContain("setup");
+    expect(result.stdout).toContain("doctor");
+    expect(result.stdout).toContain("config");
     expect(result.stdout).not.toContain("serve-http");
     expect(result.stdout).toContain("pj");
     expect(result.stdout).toContain("idx");
@@ -287,5 +290,85 @@ Alias commands should work.
     expect(written).toContain("index_db:");
     expect(written).toContain("repo: ./brain");
     expect(written).toContain("index_db: ./state/index.sqlite");
+  });
+
+  it("runs non-interactive setup with providers, remote config, and diagnostics", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "braincode-setup-"));
+    tempRoots.push(root);
+    const configPath = path.join(root, "config.yaml");
+    const workspacePath = path.join(root, "workspace");
+
+    const result = await runCli([
+      "--config",
+      configPath,
+      "setup",
+      "--non-interactive",
+      "--project-name",
+      "braincode",
+      "--project-path",
+      workspacePath,
+      "--project-url",
+      "https://github.com/example/braincode.git",
+      "--branch",
+      "main",
+      "--enable-llm",
+      "--llm-provider",
+      "deepseek",
+      "--enable-embedding",
+      "--embedding-provider",
+      "qwen_bailian",
+      "--remote-mode",
+      "both",
+      "--remote-url",
+      "https://brain.example.com"
+    ]);
+    const written = await readFile(configPath, "utf8");
+    const pathResult = await runCli(["--config", configPath, "config", "path"]);
+    const showResult = await runCli(["--config", configPath, "config", "show"]);
+    const validateResult = await runCli(["--config", configPath, "config", "validate"]);
+    const doctorResult = await runCli(["--config", configPath, "doctor"]);
+
+    expect(result.failed).toBe(false);
+    expect(result.stdout).toContain("MCP stdio config snippet");
+    expect(result.stdout).toContain("export DEEPSEEK_API_KEY");
+    expect(result.stdout).toContain("export BRAINCODE_REMOTE_TOKEN");
+    expect(result.stdout).toContain("export BRAINCODE_SERVER_TOKEN");
+    expect(written).toContain("provider: deepseek");
+    expect(written).toContain("provider: qwen_bailian");
+    expect(written).toContain("api_key_env: DASHSCOPE_API_KEY");
+    expect(written).toContain("remote:");
+    expect(written).toContain("auth_token_env: BRAINCODE_SERVER_TOKEN");
+    expect(pathResult.failed).toBe(false);
+    expect(pathResult.stdout.trim()).toBe(configPath);
+    expect(showResult.failed).toBe(false);
+    expect(showResult.stdout).toContain("https://brain.example.com");
+    expect(validateResult.failed).toBe(false);
+    expect(validateResult.stdout).toContain("valid: true");
+    expect(doctorResult.failed).toBe(false);
+    expect(doctorResult.stdout).toContain("[warning] llm_env");
+  });
+
+  it("fails non-interactive setup when required options are missing", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "braincode-setup-missing-"));
+    tempRoots.push(root);
+    const configPath = path.join(root, "config.yaml");
+
+    const result = await runCli(["--config", configPath, "setup", "--non-interactive"]);
+
+    expect(result.failed).toBe(true);
+    expect(result.stderr).toContain("--project-name");
+    expect(result.stderr).toContain("--project-path");
+  });
+
+  it("reports invalid config through doctor", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "braincode-doctor-invalid-"));
+    tempRoots.push(root);
+    const configPath = path.join(root, "config.yaml");
+    await writeFile(configPath, "brain:\n  repo: 42\n", "utf8");
+
+    const result = await runCli(["--config", configPath, "doctor"]);
+
+    expect(result.failed).toBe(true);
+    expect(result.stdout).toContain("[error] config_invalid");
   });
 });
