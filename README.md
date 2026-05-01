@@ -48,7 +48,7 @@ braincode setup --non-interactive \
   --branch main
 ```
 
-`setup` guides local paths, project identity, optional LLM/embedding providers, remote sync, and MCP snippets. It never writes API keys or tokens to config; it only stores environment variable names.
+`setup` guides local paths, project identity, optional LLM/embedding providers, remote sync, and MCP snippets. It never writes API keys or tokens to config; it only stores environment variable names. When remote server mode is enabled, `setup` prints a strong random `BRAINCODE_SERVER_TOKEN` export hint for you to save in your shell profile or secret manager.
 
 Minimal script-friendly initialization is still available:
 
@@ -182,7 +182,7 @@ Do not use `npm run serve` in MCP client config. `stdio` MCP requires clean stdo
 Remote MCP is available through Streamable HTTP at `/mcp`:
 
 ```bash
-export BRAINCODE_SERVER_TOKEN="change-me"
+export BRAINCODE_SERVER_TOKEN="<token printed by braincode setup>"
 braincode serve --remote --ip 127.0.0.1 --port 7331
 ```
 
@@ -244,6 +244,8 @@ sync:
   compression: gzip
   prune_on_pull: true
 ```
+
+`braincode setup` can generate the server token export hint for this env var. It does not write the token to YAML; remote clients should set `BRAINCODE_REMOTE_TOKEN` to the same value when connecting.
 
 Pull remote truth into the local cache:
 

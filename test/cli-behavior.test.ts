@@ -331,8 +331,8 @@ Alias commands should work.
     expect(result.failed).toBe(false);
     expect(result.stdout).toContain("MCP stdio config snippet");
     expect(result.stdout).toContain("export DEEPSEEK_API_KEY");
-    expect(result.stdout).toContain("export BRAINCODE_REMOTE_TOKEN");
-    expect(result.stdout).toContain("export BRAINCODE_SERVER_TOKEN");
+    expect(result.stdout).toContain('export BRAINCODE_REMOTE_TOKEN="..."');
+    expect(result.stdout).toMatch(/export BRAINCODE_SERVER_TOKEN="[A-Za-z0-9_-]{43}"/);
     expect(written).toContain("provider: deepseek");
     expect(written).toContain("provider: qwen_bailian");
     expect(written).toContain("api_key_env: DASHSCOPE_API_KEY");

@@ -1165,6 +1165,7 @@ braincode idx --all
 - `braincode init` 保持最小、脚本友好的 bootstrap，不默认进入交互
 - `braincode setup --non-interactive` 用于自动化部署，缺少必要参数时必须失败并列出缺失项
 - API key 和 token 不写入 config，只保存 `api_key_env`、`token_env`、`auth_token_env`
+- 当启用 remote server 模式且 server token 环境变量未设置时，setup 输出一次强随机 `BRAINCODE_SERVER_TOKEN` 的 export 提示；该 token 不写入 YAML，不由 `serve` 临时生成
 - `braincode doctor` 负责检查 config、路径、项目 roots、模型/远程所需环境变量
 - `braincode config path/show/validate/edit` 提供固定配置维护入口
 - setup 不改变 MCP thin-service 工具面

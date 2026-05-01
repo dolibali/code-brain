@@ -29,6 +29,25 @@ Current status
 Session: 2026-05-01
 
 What was implemented
+- Moved remote server token generation into `braincode setup`.
+- When remote server mode is configured and `server.auth_token_env` is not set in the current environment, setup now prints a strong random `export BRAINCODE_SERVER_TOKEN="..."` hint.
+- Kept secrets out of YAML: setup still writes only env var names, not token values.
+- Kept `braincode serve --remote` as a pure startup command; it does not silently generate transient tokens.
+- Kept remote client token hints as placeholders because `BRAINCODE_REMOTE_TOKEN` must match the remote server token.
+- Updated README and DESIGN.md to document the setup-time token behavior.
+
+Current status
+- `npm run typecheck` passes
+- `npm test` passes
+- `npm run build` passes
+
+Important notes
+- Package version remains `0.1.0`.
+- No MCP tools or CLI command names changed.
+
+Session: 2026-05-01
+
+What was implemented
 - Simplified the human-facing CLI command surface to the new BrainCode naming:
   - `project add --name/--path/--url/--branch`
   - `pj add -n/-p/-u/-b`

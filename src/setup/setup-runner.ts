@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { randomBytes } from "node:crypto";
 import type { Interface } from "node:readline/promises";
 import {
   getDefaultConfig,
@@ -244,32 +245,37 @@ function configureRemote(config: BrainCodeConfig, options: SetupOptions): BrainC
   };
 }
 
+function generateServerToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
 function collectEnvHints(config: BrainCodeConfig): string[] {
-  const envNames = new Set<string>();
+  const hints: string[] = [];
+  const seen = new Set<string>();
   const llmProvider = config.llm.routing.search ?? config.llm.provider;
   const embeddingProvider = config.embedding.routing.search ?? config.embedding.provider;
+  const addHint = (envName: string | undefined, value: string): void => {
+    if (!envName || process.env[envName] || seen.has(envName)) {
+      return;
+    }
+    seen.add(envName);
+    hints.push(`export ${envName}=\"${value}\"`);
+  };
 
   if (config.llm.enabled && llmProvider) {
     const envName = config.llm.providers[llmProvider]?.apiKeyEnv;
-    if (envName && !process.env[envName]) {
-      envNames.add(envName);
-    }
+    addHint(envName, "...");
   }
 
   if (config.embedding.enabled && embeddingProvider) {
     const envName = config.embedding.providers[embeddingProvider]?.apiKeyEnv;
-    if (envName && !process.env[envName]) {
-      envNames.add(envName);
-    }
+    addHint(envName, "...");
   }
 
-  for (const envName of [config.remote.tokenEnv, config.server.authTokenEnv]) {
-    if (envName && !process.env[envName]) {
-      envNames.add(envName);
-    }
-  }
+  addHint(config.server.authTokenEnv, generateServerToken());
+  addHint(config.remote.tokenEnv, "...");
 
-  return Array.from(envNames).map((envName) => `export ${envName}=\"...\"`);
+  return hints;
 }
 
 function printMcpSnippets(): string {
